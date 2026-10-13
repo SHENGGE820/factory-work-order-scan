@@ -509,7 +509,9 @@ async function onNativeCodes(vals){
     lastMiss=x; nativeBusy=false; return;
   }
 }
-if(NativeScanner){
+// ML Kit misses the flat barcode on real slips (tested 2026-10-13) while ZXing on the web camera reads it,
+// so the app keeps the web scanner and only falls back to ML Kit when the WebView has no camera access.
+if(NativeScanner&&!navigator.mediaDevices?.getUserMedia){
   $("liveBtn").hidden=false; $("liveBtn").onclick=startNative;
   $("nativeClose").onclick=stopNative;
   $("nativeTorch").onclick=()=>NativeScanner.toggleTorch().catch(()=>{});

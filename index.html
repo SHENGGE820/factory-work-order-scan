@@ -3,7 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>工令掃碼試作</title>
+<title>工令單掃描</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#15202b">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <style>
 /* Layout: one narrow column, phone-first; two tabs (scan / test work orders). Big tap targets for factory floor use. */
 :root{
@@ -211,7 +215,7 @@ function lookupFailed(e){say(e instanceof LookupError&&e.message==="pin"?"badPin
 
 // ---- Languages ----
 const T = {
-  zh:{title:"工令單掃描",demo:"測試版・假資料",tabScan:"掃描",tabSheet:"測試工令單",scan:"改用拍照",live:"掃描工令單",aim:"把「工令單號」條碼放進框內",checking:"讀到了，查詢中… ",torch:"手電筒",closeCam:"關閉鏡頭",camErr:"無法開啟鏡頭。請允許使用相機，或改用拍照。",find:"查詢",pinAsk:"請輸入工廠密碼（只需輸入一次）",ok:"確定",badPin:"工廠密碼不正確，請重新輸入。",netErr:"連不上工令單資料，請確認網路後再試。",live1:"測試版",
+  zh:{title:"工令單掃描",demo:"測試版・假資料",tabScan:"掃描",tabSheet:"測試工令單",scan:"改用拍照",live:"掃描工令單",aim:"把「工令單號」條碼放進框內",checking:"讀到了，查詢中… ",torch:"手電筒",closeCam:"關閉鏡頭",camErr:"無法開啟鏡頭。請允許使用相機，或改用拍照。",tryPhoto:"掃不到嗎？可以按下面的「改用拍照」。",find:"查詢",pinAsk:"請輸入工廠密碼（只需輸入一次）",ok:"確定",badPin:"工廠密碼不正確，請重新輸入。",netErr:"連不上工令單資料，請確認網路後再試。",live1:"測試版",
       fNo:"工令單號",fName:"產品名稱",fCode:"產品編號",fQty:"數量",
       logNote:"測試版：紀錄只存在這支手機，不會上傳。",rework:"重工",
       busy:"讀取中…",noCode:"沒有讀到工令單號條碼。請把「工令單號」那條拍清楚、拍正，再試一次。",
@@ -220,7 +224,7 @@ const T = {
       inProgress:"進行中",min:"分鐘",
       sheetNote:"用電腦開這一頁，再用手機的「掃描」頁對著螢幕拍照。全部是編造的測試資料。",
       slipNo:"工令單號",slipQty:"數量"},
-  vi:{title:"Quét lệnh sản xuất",demo:"Bản thử・Dữ liệu giả",tabScan:"Quét",tabSheet:"Phiếu thử",scan:"Chụp ảnh thay thế",live:"Quét phiếu",aim:"Đưa mã vạch “工令單號” vào khung",checking:"Đã đọc, đang tìm… ",torch:"Đèn pin",closeCam:"Tắt camera",camErr:"Không mở được camera. Hãy cho phép dùng camera, hoặc chụp ảnh.",find:"Tìm",pinAsk:"Nhập mật khẩu nhà máy (chỉ một lần)",ok:"OK",badPin:"Mật khẩu nhà máy không đúng, hãy nhập lại.",netErr:"Không kết nối được dữ liệu. Kiểm tra mạng rồi thử lại.",live1:"Bản thử",
+  vi:{title:"Quét lệnh sản xuất",demo:"Bản thử・Dữ liệu giả",tabScan:"Quét",tabSheet:"Phiếu thử",scan:"Chụp ảnh thay thế",live:"Quét phiếu",aim:"Đưa mã vạch “工令單號” vào khung",checking:"Đã đọc, đang tìm… ",torch:"Đèn pin",closeCam:"Tắt camera",camErr:"Không mở được camera. Hãy cho phép dùng camera, hoặc chụp ảnh.",tryPhoto:"Không quét được? Hãy bấm “Chụp ảnh thay thế” bên dưới.",find:"Tìm",pinAsk:"Nhập mật khẩu nhà máy (chỉ một lần)",ok:"OK",badPin:"Mật khẩu nhà máy không đúng, hãy nhập lại.",netErr:"Không kết nối được dữ liệu. Kiểm tra mạng rồi thử lại.",live1:"Bản thử",
       fNo:"Số lệnh SX",fName:"Tên sản phẩm",fCode:"Mã sản phẩm",fQty:"Số lượng",
       logNote:"Bản thử: dữ liệu chỉ lưu trên điện thoại này.",rework:"Làm lại",
       busy:"Đang đọc…",noCode:"Không đọc được mã vạch số lệnh. Hãy chụp rõ và thẳng mã vạch “工令單號”, rồi thử lại.",
@@ -229,7 +233,7 @@ const T = {
       inProgress:"Đang làm",min:"phút",
       sheetNote:"Mở trang này trên máy tính, rồi dùng trang “Quét” trên điện thoại để chụp màn hình. Dữ liệu đều là giả.",
       slipNo:"Số lệnh SX",slipQty:"Số lượng"},
-  id:{title:"Pindai Perintah Kerja",demo:"Versi uji・Data palsu",tabScan:"Pindai",tabSheet:"Lembar uji",scan:"Pakai foto saja",live:"Pindai lembar kerja",aim:"Arahkan barcode “工令單號” ke dalam kotak",checking:"Terbaca, sedang mencari… ",torch:"Senter",closeCam:"Tutup kamera",camErr:"Kamera tidak bisa dibuka. Izinkan kamera, atau pakai foto.",find:"Cari",pinAsk:"Masukkan kata sandi pabrik (cukup sekali)",ok:"OK",badPin:"Kata sandi pabrik salah, masukkan lagi.",netErr:"Tidak bisa terhubung ke data. Periksa internet lalu coba lagi.",live1:"Versi uji",
+  id:{title:"Pindai Perintah Kerja",demo:"Versi uji・Data palsu",tabScan:"Pindai",tabSheet:"Lembar uji",scan:"Pakai foto saja",live:"Pindai lembar kerja",aim:"Arahkan barcode “工令單號” ke dalam kotak",checking:"Terbaca, sedang mencari… ",torch:"Senter",closeCam:"Tutup kamera",camErr:"Kamera tidak bisa dibuka. Izinkan kamera, atau pakai foto.",tryPhoto:"Tidak terbaca? Tekan “Pakai foto saja” di bawah.",find:"Cari",pinAsk:"Masukkan kata sandi pabrik (cukup sekali)",ok:"OK",badPin:"Kata sandi pabrik salah, masukkan lagi.",netErr:"Tidak bisa terhubung ke data. Periksa internet lalu coba lagi.",live1:"Versi uji",
       fNo:"No. perintah kerja",fName:"Nama produk",fCode:"Kode produk",fQty:"Jumlah",
       logNote:"Versi uji: catatan hanya tersimpan di HP ini.",rework:"Pengerjaan ulang",
       busy:"Membaca…",noCode:"Barcode nomor kerja tidak terbaca. Foto barcode “工令單號” dengan jelas dan lurus, lalu coba lagi.",
@@ -238,7 +242,7 @@ const T = {
       inProgress:"Berjalan",min:"menit",
       sheetNote:"Buka halaman ini di komputer, lalu foto layar dengan halaman “Pindai” di HP. Semua data palsu.",
       slipNo:"No. perintah kerja",slipQty:"Jumlah"},
-  th:{title:"สแกนใบสั่งงาน",demo:"ทดลอง・ข้อมูลสมมติ",tabScan:"สแกน",tabSheet:"ใบทดสอบ",scan:"ใช้การถ่ายรูปแทน",live:"สแกนใบสั่งงาน",aim:"เล็งบาร์โค้ด “工令單號” ให้อยู่ในกรอบ",checking:"อ่านได้แล้ว กำลังค้นหา… ",torch:"ไฟฉาย",closeCam:"ปิดกล้อง",camErr:"เปิดกล้องไม่ได้ กรุณาอนุญาตกล้อง หรือใช้การถ่ายรูป",find:"ค้นหา",pinAsk:"กรอกรหัสผ่านโรงงาน (ครั้งเดียว)",ok:"ตกลง",badPin:"รหัสผ่านโรงงานไม่ถูกต้อง กรุณากรอกใหม่",netErr:"เชื่อมต่อข้อมูลไม่ได้ ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่",live1:"ทดลอง",
+  th:{title:"สแกนใบสั่งงาน",demo:"ทดลอง・ข้อมูลสมมติ",tabScan:"สแกน",tabSheet:"ใบทดสอบ",scan:"ใช้การถ่ายรูปแทน",live:"สแกนใบสั่งงาน",aim:"เล็งบาร์โค้ด “工令單號” ให้อยู่ในกรอบ",checking:"อ่านได้แล้ว กำลังค้นหา… ",torch:"ไฟฉาย",closeCam:"ปิดกล้อง",camErr:"เปิดกล้องไม่ได้ กรุณาอนุญาตกล้อง หรือใช้การถ่ายรูป",tryPhoto:"สแกนไม่ได้ใช่ไหม กด “ใช้การถ่ายรูปแทน” ด้านล่าง",find:"ค้นหา",pinAsk:"กรอกรหัสผ่านโรงงาน (ครั้งเดียว)",ok:"ตกลง",badPin:"รหัสผ่านโรงงานไม่ถูกต้อง กรุณากรอกใหม่",netErr:"เชื่อมต่อข้อมูลไม่ได้ ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่",live1:"ทดลอง",
       fNo:"เลขใบสั่งงาน",fName:"ชื่อสินค้า",fCode:"รหัสสินค้า",fQty:"จำนวน",
       logNote:"ทดลอง: บันทึกเก็บไว้ในโทรศัพท์เครื่องนี้เท่านั้น",rework:"งานแก้ไข",
       busy:"กำลังอ่าน…",noCode:"อ่านบาร์โค้ดเลขใบสั่งงานไม่ได้ ถ่ายบาร์โค้ด “工令單號” ให้ชัดและตรง แล้วลองใหม่",
@@ -356,13 +360,36 @@ $("manualGo").onclick=async()=>{
 $("manualNo").addEventListener("keydown",e=>{if(e.key==="Enter")$("manualGo").click()});
 
 // ---- Live camera: read continuously, accept only codes that exist as work orders ----
-let stream=null,loop=null,detector=null,audio=null,lastMiss="";
+let stream=null,loop=null,detector=null,audio=null,lastMiss="",slowHint=null;
+const VIDEO={width:{ideal:1920},height:{ideal:1080}};
+const canAutofocus=s=>!!s.getVideoTracks()[0].getCapabilities?.().focusMode?.includes("continuous");
+const camById=id=>navigator.mediaDevices.getUserMedia({audio:false,video:{...VIDEO,deviceId:{exact:id}}}).catch(()=>null);
+// Multi-camera Android phones may hand the page a fixed-focus lens (e.g. ultra-wide) that cannot read a slip up close.
+// Look for a back camera that can autofocus, and remember it for next time.
+async function openCamera(){
+  const saved=store.get("camId","");
+  const got=saved&&await camById(saved);
+  if(got) return got;
+  const s=await navigator.mediaDevices.getUserMedia({audio:false,video:{...VIDEO,facingMode:{ideal:"environment"}}});
+  if(canAutofocus(s)||!/Android/i.test(navigator.userAgent)) return s;
+  const using=s.getVideoTracks()[0].getSettings().deviceId;
+  const backs=(await navigator.mediaDevices.enumerateDevices())
+    .filter(d=>d.kind==="videoinput"&&d.deviceId!==using&&/back|rear|environment|後/i.test(d.label))
+    .sort((a,b)=>/\b0\b/.test(b.label)-/\b0\b/.test(a.label));   // "camera2 0" is usually the main lens
+  s.getTracks().forEach(t=>t.stop());
+  for(const d of backs){
+    const c=await camById(d.deviceId);
+    if(c&&canAutofocus(c)){store.set("camId",d.deviceId);return c}
+    c?.getTracks().forEach(t=>t.stop());
+  }
+  return navigator.mediaDevices.getUserMedia({audio:false,video:{...VIDEO,facingMode:{ideal:"environment"}}});
+}
 const frame=document.createElement("canvas"),fctx=frame.getContext("2d",{willReadFrequently:true});
 async function startCam(){
   hush();
   try{audio=audio||new (window.AudioContext||window.webkitAudioContext)()}catch(e){}
   try{
-    stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:"environment"},width:{ideal:1920},height:{ideal:1080}}});
+    stream=await openCamera();
   }catch(e){stream=null;return say("camErr")}
   const v=$("video"); v.srcObject=stream; await v.play().catch(()=>{});
   const track=stream.getVideoTracks()[0], caps=track.getCapabilities?.()||{};
@@ -375,9 +402,10 @@ async function startCam(){
     try{const f=await BarcodeDetector.getSupportedFormats();if(f.includes("code_128"))detector=new BarcodeDetector({formats:["code_128","code_39"]})}catch(e){}
   }
   lastMiss=""; scanFrame();
+  clearTimeout(slowHint); slowHint=setTimeout(()=>{if(stream)say("tryPhoto","","busy")},8000);
 }
 function stopCam(){
-  clearTimeout(loop); loop=null;
+  clearTimeout(loop); loop=null; clearTimeout(slowHint);
   if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}
   $("viewer").hidden=true; $("camctl").hidden=true; $("liveBtn").hidden=false;
 }
@@ -400,7 +428,7 @@ async function scanFrame(){
   for(const x of vals.filter(isCandidate)){
     if(x===lastMiss) continue;
     // Signal the read right away: the sheet lookup can take a few seconds.
-    $("viewer").classList.add("hit"); beep(); navigator.vibrate?.(120); $("hint").textContent=t("checking")+x;
+    clearTimeout(slowHint); $("viewer").classList.add("hit"); beep(); navigator.vibrate?.(120); $("hint").textContent=t("checking")+x;
     let o;
     try{o=await lookup(x)}catch(e){stopCam();return lookupFailed(e)}
     if(!stream) return;
@@ -516,6 +544,7 @@ $("pinInput").addEventListener("keydown",e=>{if(e.key==="Enter")$("pinGo").click
 if(!DEMO){ $("tab-sheet").hidden=true; document.querySelector(".tabs").style.gridTemplateColumns="1fr"; if(!store.get("pin","")) showPin() }
 
 applyLang();
+if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});
 </script>
 </body>
 </html>

@@ -97,6 +97,14 @@ h1{font-size:20px;margin:0;text-wrap:balance}
 .slip svg{width:100%;height:auto;max-width:100%;display:block}
 .slip .meta{font-size:13px;display:flex;flex-wrap:wrap;gap:4px 14px}
 .slip .h-code{opacity:.9}
+/* Android app: the native camera is drawn behind the page, so hide the page and keep only the scan overlay */
+html.native-scanning,html.native-scanning body{background:transparent}
+html.native-scanning body{visibility:hidden}
+.native-scan{position:fixed;inset:0;z-index:10;visibility:visible}
+.native-scan.hit .guide span{border-color:var(--go)}
+.native-scan .hint{bottom:110px;padding:0 16px}
+.native-scan .ctl{position:absolute;left:16px;right:16px;bottom:24px;display:flex;gap:8px}
+.native-scan .btn{background:rgba(0,0,0,.6);color:#fff;border-color:rgba(255,255,255,.5)}
 </style>
 </head>
 <body>
@@ -175,6 +183,15 @@ h1{font-size:20px;margin:0;text-wrap:balance}
     <p class="note" data-t="sheetNote">用電腦開這一頁，再用手機的「掃描」頁對著螢幕拍照。全部是編造的測試資料。</p>
     <div id="slips" class="sheet"></div>
   </main>
+</div>
+
+<div class="native-scan" id="nativeScan" hidden>
+  <div class="guide" aria-hidden="true"><span></span></div>
+  <p class="hint" id="nativeHint" data-t="aim">把「工令單號」條碼放進框內</p>
+  <div class="ctl">
+    <button class="btn btn-ghost" id="nativeTorch" data-t="torch">手電筒</button>
+    <button class="btn btn-ghost" id="nativeClose" data-t="closeCam">關閉鏡頭</button>
+  </div>
 </div>
 
 <script src="config.js"></script>
@@ -447,6 +464,49 @@ let torch=false;
 $("torchBtn").onclick=()=>{const tr=stream?.getVideoTracks()[0];if(!tr)return;torch=!torch;tr.applyConstraints({advanced:[{torch}]}).catch(()=>{})};
 document.addEventListener("visibilitychange",()=>{if(document.hidden&&stream)stopCam()});
 if(!navigator.mediaDevices?.getUserMedia) $("liveBtn").hidden=true;
+
+// ---- Android app (Capacitor shell): scan with the phone's own ML Kit scanner instead of the web camera ----
+const NativeScanner=window.Capacitor?.isNativePlatform?.()?(window.Capacitor.Plugins?.BarcodeScanner||window.Capacitor.registerPlugin?.("BarcodeScanner")):null;
+let nativeOn=false,nativeBusy=false;
+async function startNative(){
+  hush();
+  try{audio=audio||new (window.AudioContext||window.webkitAudioContext)()}catch(e){}
+  try{
+    const {camera}=await NativeScanner.requestPermissions();
+    if(camera!=="granted"&&camera!=="limited") return say("camErr");
+    lastMiss=""; nativeBusy=false;
+    await NativeScanner.addListener("barcodesScanned",e=>onNativeCodes((e.barcodes||[]).map(b=>clean(b.rawValue||b.displayValue||""))));
+    await NativeScanner.startScan({formats:["CODE_128","CODE_39"]});
+  }catch(e){await stopNative();return say("camErr")}
+  nativeOn=true; document.documentElement.classList.add("native-scanning");
+  $("nativeScan").hidden=false; $("nativeScan").classList.remove("hit"); $("nativeHint").textContent=t("aim");
+  $("nativeTorch").hidden=!(await NativeScanner.isTorchAvailable().catch(()=>({available:false}))).available;
+}
+async function stopNative(){
+  nativeOn=false; document.documentElement.classList.remove("native-scanning"); $("nativeScan").hidden=true;
+  try{await NativeScanner.removeAllListeners()}catch(e){}
+  try{await NativeScanner.stopScan()}catch(e){}
+}
+async function onNativeCodes(vals){
+  if(!nativeOn||nativeBusy) return;
+  for(const x of vals.filter(isCandidate)){
+    if(x===lastMiss) continue;
+    nativeBusy=true;
+    $("nativeScan").classList.add("hit"); beep(); navigator.vibrate?.(120); $("nativeHint").textContent=t("checking")+x;
+    let o;
+    try{o=await lookup(x)}catch(e){await stopNative();return lookupFailed(e)}
+    if(!nativeOn) return;
+    if(o){await stopNative();return open(x)}
+    $("nativeScan").classList.remove("hit"); $("nativeHint").textContent=t("notFound")+x;
+    lastMiss=x; nativeBusy=false; return;
+  }
+}
+if(NativeScanner){
+  $("liveBtn").hidden=false; $("liveBtn").onclick=startNative;
+  $("nativeClose").onclick=stopNative;
+  $("nativeTorch").onclick=()=>NativeScanner.toggleTorch().catch(()=>{});
+  document.addEventListener("visibilitychange",()=>{if(document.hidden&&nativeOn)stopNative()});
+}
 
 // ---- Order + phase timer ----
 // One job at a time. Scanning starts 前置 (prep), or 上機 (run) directly for an order already worked on;

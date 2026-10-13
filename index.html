@@ -298,7 +298,10 @@ function say(key,extra="",cls="err"){lastMsg={key,extra,cls};const m=$("msg");m.
 function hush(){lastMsg=null;$("msg").hidden=true}
 
 // ---- Decode barcodes from a photo ----
-const fmtList=[ZXing.BarcodeFormat.CODE_128,ZXing.BarcodeFormat.CODE_39,ZXing.BarcodeFormat.CODE_93,ZXing.BarcodeFormat.ITF,ZXing.BarcodeFormat.EAN_13];
+// Real slips are not all Code 128 (test slips are), so every reader accepts the common linear formats.
+const WEB_FORMATS=["code_128","code_39","code_93","codabar","itf","ean_13","ean_8","upc_a","upc_e"];
+const NATIVE_FORMATS=["CODE_128","CODE_39","CODE_93","CODABAR","ITF","EAN_13","EAN_8","UPC_A","UPC_E"];
+const fmtList=["CODE_128","CODE_39","CODE_93","CODABAR","ITF","EAN_13","EAN_8","UPC_A","UPC_E"].map(f=>ZXing.BarcodeFormat[f]);
 const reader=new ZXing.MultiFormatReader();
 {const h=new Map();h.set(ZXing.DecodeHintType.POSSIBLE_FORMATS,fmtList);h.set(ZXing.DecodeHintType.TRY_HARDER,true);reader.setHints(h)}
 
@@ -324,7 +327,7 @@ function canvasFrom(img,maxW,rotate){
 async function readCodes(img){
   const found=new Set();
   if("BarcodeDetector" in window){
-    try{const det=new BarcodeDetector({formats:["code_128","code_39","code_93","itf","ean_13"]});
+    try{const det=new BarcodeDetector({formats:WEB_FORMATS});
       for(const r of await det.detect(img)) found.add(r.rawValue)}catch(e){}
     if([...found].some(v=>isCandidate(clean(v)))) return [...found];
   }
@@ -346,7 +349,8 @@ async function readCodes(img){
   }
   return [...found];
 }
-const clean=v=>String(v).trim().toUpperCase();
+// Keep just the work-order number when a barcode carries extra characters around it (start/stop or check characters, spaces).
+const clean=v=>{const u=String(v).trim().toUpperCase();return (u.match(/[A-Z]\d{10}/)||[u])[0]};
 
 function loadImage(file){return new Promise((ok,no)=>{const u=URL.createObjectURL(file),im=new Image();im.onload=()=>{ok(im)};im.onerror=no;im.src=u})}
 
@@ -416,7 +420,7 @@ async function startCam(){
   $("torchBtn").hidden=!caps.torch;
   $("viewer").hidden=false; $("camctl").hidden=false; $("liveBtn").hidden=true; $("viewer").classList.remove("hit"); $("hint").textContent=t("aim");
   if(!detector&&"BarcodeDetector" in window){
-    try{const f=await BarcodeDetector.getSupportedFormats();if(f.includes("code_128"))detector=new BarcodeDetector({formats:["code_128","code_39"]})}catch(e){}
+    try{const f=await BarcodeDetector.getSupportedFormats();if(f.includes("code_128"))detector=new BarcodeDetector({formats:WEB_FORMATS.filter(x=>f.includes(x))})}catch(e){}
   }
   lastMiss=""; scanFrame();
   clearTimeout(slowHint); slowHint=setTimeout(()=>{if(stream)say("tryPhoto","","busy")},8000);
@@ -432,9 +436,11 @@ async function scanFrame(){
   if(v.readyState>=2&&v.videoWidth){
     if(detector){
       try{vals=(await detector.detect(v)).map(r=>clean(r.rawValue))}catch(e){}
-    }else{
+    }
+    // Real slips carry a very flat, long barcode that native detectors often miss; ZXing reads it row by row.
+    if(!vals.some(isCandidate)){
       // Decode the band inside the guide frame, split in strips so the H barcode below cannot hide the work order one.
-      const s=Math.min(1,1280/v.videoWidth),w=Math.round(v.videoWidth*s),h=Math.round(v.videoHeight*s);
+      const s=Math.min(1,1920/v.videoWidth),w=Math.round(v.videoWidth*s),h=Math.round(v.videoHeight*s);
       frame.width=w;frame.height=h;fctx.drawImage(v,0,0,w,h);
       const top=Math.round(h*.25),band=Math.round(h*.5),n=3,sh=Math.round(band/n);
       const full=zxingOnce(fctx,0,top,w,band); if(full) vals.push(clean(full));
@@ -453,7 +459,7 @@ async function scanFrame(){
     $("viewer").classList.remove("hit"); $("hint").textContent=t("aim");
     lastMiss=x; say("notFound",x);
   }
-  loop=setTimeout(scanFrame,detector?120:60);
+  loop=setTimeout(scanFrame,60);
 }
 function beep(){
   try{const o=audio.createOscillator(),g=audio.createGain();o.frequency.value=1500;g.gain.value=.15;o.connect(g).connect(audio.destination);o.start();o.stop(audio.currentTime+.12)}catch(e){}
@@ -476,7 +482,9 @@ async function startNative(){
     if(camera!=="granted"&&camera!=="limited") return say("camErr");
     lastMiss=""; nativeBusy=false;
     await NativeScanner.addListener("barcodesScanned",e=>onNativeCodes((e.barcodes||[]).map(b=>clean(b.rawValue||b.displayValue||""))));
-    await NativeScanner.startScan({formats:["CODE_128","CODE_39"]});
+    // The default 640x480 analysis is too coarse for the flat barcode on real slips.
+    await NativeScanner.startScan({formats:NATIVE_FORMATS,resolution:2});   // 2 = 1920x1080
+    NativeScanner.getMaxZoomRatio().then(({zoomRatio})=>NativeScanner.setZoomRatio({zoomRatio:Math.min(1.5,zoomRatio)})).catch(()=>{});
   }catch(e){await stopNative();return say("camErr")}
   nativeOn=true; document.documentElement.classList.add("native-scanning");
   $("nativeScan").hidden=false; $("nativeScan").classList.remove("hit"); $("nativeHint").textContent=t("aim");

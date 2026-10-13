@@ -55,6 +55,10 @@
 2a. **即時掃描對焦（2026-10-13）**：使用者安卓手機掃紙本，拍照讀得到、即時掃描讀不到。推測 Chrome 挑到不能自動對焦的鏡頭（例如廣角）：
    安卓上若鏡頭不支援 `focusMode: continuous`，改試其他後鏡頭，找到可對焦的記在 `localStorage.camId`。另有 1.5 倍變焦、讀到條碼立即嗶聲（查表要 2～5 秒）、8 秒讀不到提示改用拍照。**尚待使用者實機確認。**
 2b. **PWA**：`manifest.webmanifest`、`sw.js`（網路優先，離線才用快取，不快取 Apps Script）、`icons/`。手機 Chrome「安裝／加到主畫面」即成 App；推上 GitHub Pages 後下次開啟就是新版，不需要更新包。使用者原本想要 APK＋更新包，已說明改用 PWA。
+2c. **Android App（APK，2026-10-13）**：網頁即時掃描在使用者安卓手機上仍讀不到紙本（拍照可以），改做 Capacitor 殼 App。
+   - 專案在儲存庫**外**：`工廠/factory-app`（不推上 GitHub）。`server.url` 指向 GitHub Pages，所以畫面／功能改動推上網站就自動更新；只有原生掃描相關改動才需重新打包 APK。
+   - 掃描用 `@capacitor-mlkit/barcode-scanning` 的 `startScan`（相機畫在網頁後方），`index.html` 偵測到 `Capacitor` 時「掃描工令單」改走 `startNative()`，瀏覽器版不受影響。
+   - 打包工具（免安裝）：`C:\Users\USER\android-build`（`jdk`、`sdk`，已經使用者同意 SDK 授權）。打包：在 `factory-app/android` 設 `JAVA_HOME` 後 `gradlew assembleDebug`。目前用 debug 簽章（這台電腦的 `~/.android/debug.keystore`），換電腦打包會無法覆蓋安裝。
 3. **測試工令單頁**：6 張假工令單（Code 128），用電腦顯示、手機掃。
 4. **Google 試算表串接（程式已完成，待使用者部署）**
    - `apps-script/Code.gs`：放在試算表內的 Apps Script 網頁應用程式。輸入單號＋PIN，只回傳四項；不能列出整份表。快取 5 分鐘。

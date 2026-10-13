@@ -100,7 +100,14 @@ h1{font-size:20px;margin:0;text-wrap:balance}
   </header>
 
   <main id="view-scan" class="wrap" style="gap:16px">
-    <section class="panel">
+    <section class="panel" id="pinPanel" hidden>
+      <label for="pinInput" data-t="pinAsk">請輸入工廠密碼（只需輸入一次）</label>
+      <div class="manual">
+        <input id="pinInput" type="password" inputmode="numeric" autocomplete="off" aria-label="PIN">
+        <button class="btn btn-ghost" id="pinGo" data-t="ok">確定</button>
+      </div>
+    </section>
+    <section class="panel" id="scanPanel">
       <button class="btn btn-scan" id="liveBtn"><span aria-hidden="true">▮▯▮▮▯▮</span><span data-t="live">掃描工令單</span></button>
       <div class="viewer" id="viewer" hidden>
         <video id="video" playsinline muted></video>
@@ -146,6 +153,7 @@ h1{font-size:20px;margin:0;text-wrap:balance}
   </main>
 </div>
 
+<script src="config.js"></script>
 <script src="vendor/JsBarcode.all.min.js"></script>
 <script src="vendor/zxing-library.min.js"></script>
 <script>
@@ -159,11 +167,31 @@ const ORDERS = [
   {no:"X1150103006", code:"4100000000066", name:"測試品_膠原蛋白 粉包 盒裝(每盒15包)", qty:450, unit:"盒", rework:true},
 ];
 const FORMAT = /^[A-Z]\d{10}$/;          // 1 letter + 10 digits
-const byNo = Object.fromEntries(ORDERS.map(o=>[o.no,o]));
+const API = location.hash==="#demo" ? "" : (window.APP_CONFIG?.sheetApi||"");
+const DEMO = !API;                        // no sheet configured: use the fake orders above
+const orders = new Map(DEMO ? ORDERS.map(o=>[o.no,o]) : []);
+const missing = new Set();
+// Customer order barcodes (H...) sit on the same slip; they are never looked up.
+const isCandidate = v=>FORMAT.test(v)&&!v.startsWith("H");
+class LookupError extends Error{}
+async function lookup(no){
+  if(orders.has(no)) return orders.get(no);
+  if(DEMO||missing.has(no)) return null;
+  const pin=store.get("pin","");
+  if(!pin){showPin();throw new LookupError("pin")}
+  let res;
+  try{res=await (await fetch(API+"?no="+encodeURIComponent(no)+"&pin="+encodeURIComponent(pin))).json()}
+  catch(e){throw new LookupError("net")}
+  if(res.ok){const o={...res.order};o.qty=Number(String(o.qty).replace(/,/g,""))||o.qty;orders.set(no,o);return o}
+  if(res.error==="bad_pin"){store.set("pin","");showPin();throw new LookupError("pin")}
+  if(res.error==="not_found"){missing.add(no);return null}
+  throw new LookupError("net");
+}
+function lookupFailed(e){say(e instanceof LookupError&&e.message==="pin"?"badPin":"netErr")}
 
 // ---- Languages ----
 const T = {
-  zh:{title:"工令單掃描",demo:"測試版・假資料",tabScan:"掃描",tabSheet:"測試工令單",scan:"改用拍照",live:"掃描工令單",aim:"把「工令單號」條碼放進框內",torch:"手電筒",closeCam:"關閉鏡頭",camErr:"無法開啟鏡頭。請允許使用相機，或改用拍照。",find:"查詢",
+  zh:{title:"工令單掃描",demo:"測試版・假資料",tabScan:"掃描",tabSheet:"測試工令單",scan:"改用拍照",live:"掃描工令單",aim:"把「工令單號」條碼放進框內",torch:"手電筒",closeCam:"關閉鏡頭",camErr:"無法開啟鏡頭。請允許使用相機，或改用拍照。",find:"查詢",pinAsk:"請輸入工廠密碼（只需輸入一次）",ok:"確定",badPin:"工廠密碼不正確，請重新輸入。",netErr:"連不上工令單資料，請確認網路後再試。",live1:"測試版",
       fNo:"工令單號",fName:"產品名稱",fCode:"產品編號",fQty:"數量",working:"工作中",start:"開始",stop:"結束",another:"換一張單",
       today:"今天的紀錄",logNote:"測試版：紀錄只存在這支手機，不會上傳。",rework:"重工",
       busy:"讀取中…",noCode:"沒有讀到工令單號條碼。請把「工令單號」那條拍清楚、拍正，再試一次。",
@@ -171,7 +199,7 @@ const T = {
       inProgress:"進行中",min:"分鐘",
       sheetNote:"用電腦開這一頁，再用手機的「掃描」頁對著螢幕拍照。全部是編造的測試資料。",
       slipNo:"工令單號",slipQty:"數量"},
-  vi:{title:"Quét lệnh sản xuất",demo:"Bản thử・Dữ liệu giả",tabScan:"Quét",tabSheet:"Phiếu thử",scan:"Chụp ảnh thay thế",live:"Quét phiếu",aim:"Đưa mã vạch “工令單號” vào khung",torch:"Đèn pin",closeCam:"Tắt camera",camErr:"Không mở được camera. Hãy cho phép dùng camera, hoặc chụp ảnh.",find:"Tìm",
+  vi:{title:"Quét lệnh sản xuất",demo:"Bản thử・Dữ liệu giả",tabScan:"Quét",tabSheet:"Phiếu thử",scan:"Chụp ảnh thay thế",live:"Quét phiếu",aim:"Đưa mã vạch “工令單號” vào khung",torch:"Đèn pin",closeCam:"Tắt camera",camErr:"Không mở được camera. Hãy cho phép dùng camera, hoặc chụp ảnh.",find:"Tìm",pinAsk:"Nhập mật khẩu nhà máy (chỉ một lần)",ok:"OK",badPin:"Mật khẩu nhà máy không đúng, hãy nhập lại.",netErr:"Không kết nối được dữ liệu. Kiểm tra mạng rồi thử lại.",live1:"Bản thử",
       fNo:"Số lệnh SX",fName:"Tên sản phẩm",fCode:"Mã sản phẩm",fQty:"Số lượng",working:"Đang làm",start:"Bắt đầu",stop:"Kết thúc",another:"Quét phiếu khác",
       today:"Hôm nay",logNote:"Bản thử: dữ liệu chỉ lưu trên điện thoại này.",rework:"Làm lại",
       busy:"Đang đọc…",noCode:"Không đọc được mã vạch số lệnh. Hãy chụp rõ và thẳng mã vạch “工令單號”, rồi thử lại.",
@@ -179,7 +207,7 @@ const T = {
       inProgress:"Đang làm",min:"phút",
       sheetNote:"Mở trang này trên máy tính, rồi dùng trang “Quét” trên điện thoại để chụp màn hình. Dữ liệu đều là giả.",
       slipNo:"Số lệnh SX",slipQty:"Số lượng"},
-  id:{title:"Pindai Perintah Kerja",demo:"Versi uji・Data palsu",tabScan:"Pindai",tabSheet:"Lembar uji",scan:"Pakai foto saja",live:"Pindai lembar kerja",aim:"Arahkan barcode “工令單號” ke dalam kotak",torch:"Senter",closeCam:"Tutup kamera",camErr:"Kamera tidak bisa dibuka. Izinkan kamera, atau pakai foto.",find:"Cari",
+  id:{title:"Pindai Perintah Kerja",demo:"Versi uji・Data palsu",tabScan:"Pindai",tabSheet:"Lembar uji",scan:"Pakai foto saja",live:"Pindai lembar kerja",aim:"Arahkan barcode “工令單號” ke dalam kotak",torch:"Senter",closeCam:"Tutup kamera",camErr:"Kamera tidak bisa dibuka. Izinkan kamera, atau pakai foto.",find:"Cari",pinAsk:"Masukkan kata sandi pabrik (cukup sekali)",ok:"OK",badPin:"Kata sandi pabrik salah, masukkan lagi.",netErr:"Tidak bisa terhubung ke data. Periksa internet lalu coba lagi.",live1:"Versi uji",
       fNo:"No. perintah kerja",fName:"Nama produk",fCode:"Kode produk",fQty:"Jumlah",working:"Sedang bekerja",start:"Mulai",stop:"Selesai",another:"Pindai lembar lain",
       today:"Catatan hari ini",logNote:"Versi uji: catatan hanya tersimpan di HP ini.",rework:"Pengerjaan ulang",
       busy:"Membaca…",noCode:"Barcode nomor kerja tidak terbaca. Foto barcode “工令單號” dengan jelas dan lurus, lalu coba lagi.",
@@ -187,7 +215,7 @@ const T = {
       inProgress:"Berjalan",min:"menit",
       sheetNote:"Buka halaman ini di komputer, lalu foto layar dengan halaman “Pindai” di HP. Semua data palsu.",
       slipNo:"No. perintah kerja",slipQty:"Jumlah"},
-  th:{title:"สแกนใบสั่งงาน",demo:"ทดลอง・ข้อมูลสมมติ",tabScan:"สแกน",tabSheet:"ใบทดสอบ",scan:"ใช้การถ่ายรูปแทน",live:"สแกนใบสั่งงาน",aim:"เล็งบาร์โค้ด “工令單號” ให้อยู่ในกรอบ",torch:"ไฟฉาย",closeCam:"ปิดกล้อง",camErr:"เปิดกล้องไม่ได้ กรุณาอนุญาตกล้อง หรือใช้การถ่ายรูป",find:"ค้นหา",
+  th:{title:"สแกนใบสั่งงาน",demo:"ทดลอง・ข้อมูลสมมติ",tabScan:"สแกน",tabSheet:"ใบทดสอบ",scan:"ใช้การถ่ายรูปแทน",live:"สแกนใบสั่งงาน",aim:"เล็งบาร์โค้ด “工令單號” ให้อยู่ในกรอบ",torch:"ไฟฉาย",closeCam:"ปิดกล้อง",camErr:"เปิดกล้องไม่ได้ กรุณาอนุญาตกล้อง หรือใช้การถ่ายรูป",find:"ค้นหา",pinAsk:"กรอกรหัสผ่านโรงงาน (ครั้งเดียว)",ok:"ตกลง",badPin:"รหัสผ่านโรงงานไม่ถูกต้อง กรุณากรอกใหม่",netErr:"เชื่อมต่อข้อมูลไม่ได้ ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่",live1:"ทดลอง",
       fNo:"เลขใบสั่งงาน",fName:"ชื่อสินค้า",fCode:"รหัสสินค้า",fQty:"จำนวน",working:"กำลังทำงาน",start:"เริ่ม",stop:"เสร็จ",another:"สแกนใบอื่น",
       today:"บันทึกวันนี้",logNote:"ทดลอง: บันทึกเก็บไว้ในโทรศัพท์เครื่องนี้เท่านั้น",rework:"งานแก้ไข",
       busy:"กำลังอ่าน…",noCode:"อ่านบาร์โค้ดเลขใบสั่งงานไม่ได้ ถ่ายบาร์โค้ด “工令單號” ให้ชัดและตรง แล้วลองใหม่",
@@ -204,7 +232,7 @@ const $=id=>document.getElementById(id);
 function applyLang(){
   document.documentElement.lang={zh:"zh-Hant",vi:"vi",id:"id",th:"th"}[lang];
   document.querySelectorAll("[data-t]").forEach(el=>{el.textContent=t(el.dataset.t)});
-  $("t-title").textContent=t("title"); $("t-demo").textContent=t("demo");
+  $("t-title").textContent=t("title"); $("t-demo").textContent=t(DEMO?"demo":"live1");
   document.querySelectorAll(".lang button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.lang===lang));
   if(current) showOrder(current); renderLog(); renderSlips();
   if(lastMsg) say(lastMsg.key,lastMsg.extra,lastMsg.cls);
@@ -253,7 +281,7 @@ async function readCodes(img){
   if("BarcodeDetector" in window){
     try{const det=new BarcodeDetector({formats:["code_128","code_39","code_93","itf","ean_13"]});
       for(const r of await det.detect(img)) found.add(r.rawValue)}catch(e){}
-    if([...found].some(v=>byNoOrFormat(v))) return [...found];
+    if([...found].some(v=>isCandidate(clean(v)))) return [...found];
   }
   for(const rotate of [false,true]){
     for(const maxW of [1600,1000,2400]){
@@ -265,16 +293,15 @@ async function readCodes(img){
         for(let y=0;y+sh<=c.height+1;y+=Math.round(sh/2)){
           const r=zxingOnce(ctx,0,y,c.width,Math.min(sh,c.height-y)); if(r) found.add(r);
         }
-        if([...found].some(v=>byNo[clean(v)])) return [...found];
+        if([...found].some(v=>isCandidate(clean(v)))) return [...found];
       }
       await new Promise(r=>setTimeout(r));
     }
-    if([...found].some(v=>byNoOrFormat(v))) return [...found];
+    if([...found].some(v=>isCandidate(clean(v)))) return [...found];
   }
   return [...found];
 }
 const clean=v=>String(v).trim().toUpperCase();
-const byNoOrFormat=v=>FORMAT.test(clean(v))&&!clean(v).startsWith("H");
 
 function loadImage(file){return new Promise((ok,no)=>{const u=URL.createObjectURL(file),im=new Image();im.onload=()=>{ok(im)};im.onerror=no;im.src=u})}
 
@@ -283,23 +310,24 @@ $("cam").addEventListener("change",async e=>{
   say("busy","","busy");
   let codes=[];
   try{codes=await readCodes(await loadImage(f))}catch(err){}
-  pick(codes);
+  await pick(codes);
 });
 
 // Customer order barcodes (H...) share the slip; anything not in the work-order list is ignored silently.
-function pick(codes){
-  const vals=codes.map(clean);
-  const hit=vals.find(v=>byNo[v]);
-  if(hit) return open(hit);
-  const fmt=vals.find(v=>FORMAT.test(v)&&!v.startsWith("H"));
-  if(fmt) return say("notFound",fmt);
-  say("noCode");
+async function pick(codes){
+  const cands=[...new Set(codes.map(clean))].filter(isCandidate);
+  if(!cands.length) return say("noCode");
+  try{
+    for(const v of cands){ if(await lookup(v)) return open(v) }
+  }catch(e){return lookupFailed(e)}
+  say("notFound",cands[0]);
 }
-$("manualGo").onclick=()=>{
+$("manualGo").onclick=async()=>{
   const v=clean($("manualNo").value);
   if(!FORMAT.test(v)) return say("badFormat");
-  if(!byNo[v]) return say("notFound",v);
-  open(v);
+  say("busy","","busy");
+  try{ if(await lookup(v)) return open(v) }catch(e){return lookupFailed(e)}
+  say("notFound",v);
 };
 $("manualNo").addEventListener("keydown",e=>{if(e.key==="Enter")$("manualGo").click()});
 
@@ -339,17 +367,21 @@ async function scanFrame(){
       frame.width=w;frame.height=h;fctx.drawImage(v,0,0,w,h);
       const top=Math.round(h*.25),band=Math.round(h*.5),n=3,sh=Math.round(band/n);
       const full=zxingOnce(fctx,0,top,w,band); if(full) vals.push(clean(full));
-      for(let i=0;i<n*2-1&&!vals.some(x=>byNo[x]);i++){const r=zxingOnce(fctx,0,top+Math.round(i*sh/2),w,sh);if(r)vals.push(clean(r))}
+      for(let i=0;i<n*2-1&&!vals.some(isCandidate);i++){const r=zxingOnce(fctx,0,top+Math.round(i*sh/2),w,sh);if(r)vals.push(clean(r))}
     }
   }
   if(!stream) return;
-  const hit=vals.find(x=>byNo[x]);
-  if(hit){
-    $("viewer").classList.add("hit"); beep(); navigator.vibrate?.(120);
-    setTimeout(()=>{stopCam();open(hit)},150); return;
+  for(const x of vals.filter(isCandidate)){
+    if(x===lastMiss) continue;
+    let o;
+    try{o=await lookup(x)}catch(e){stopCam();return lookupFailed(e)}
+    if(!stream) return;
+    if(o){
+      $("viewer").classList.add("hit"); beep(); navigator.vibrate?.(120);
+      setTimeout(()=>{stopCam();open(x)},150); return;
+    }
+    lastMiss=x; say("notFound",x);
   }
-  const miss=vals.find(x=>FORMAT.test(x)&&!x.startsWith("H"));
-  if(miss&&miss!==lastMiss){lastMiss=miss;say("notFound",miss)}
   loop=setTimeout(scanFrame,detector?120:60);
 }
 function beep(){
@@ -368,7 +400,7 @@ let running=store.get("running",null);   // {no,start}
 let log=store.get("log",[]);              // [{no,start,end}]
 function open(no){hush();current=no;showOrder(no);$("manualNo").value="";$("order").scrollIntoView({behavior:"smooth",block:"start"})}
 function showOrder(no){
-  const o=byNo[no]; $("order").hidden=false;
+  const o=orders.get(no); $("order").hidden=false;
   $("oNo").textContent=o.no; $("oName").textContent=o.name; $("oCode").textContent=o.code;
   $("oQty").textContent=o.qty.toLocaleString()+" "+o.unit;
   if(o.rework){const s=document.createElement("span");s.className="tag";s.textContent=t("rework");$("oNo").append(s)}
@@ -381,8 +413,8 @@ function syncTimer(){
   clearInterval(timer); if(mine){tick();timer=setInterval(tick,1000)}
 }
 function tick(){const s=Math.floor((Date.now()-running.start)/1000);$("clock").firstChild.textContent=[s/3600,s%3600/60,s%60].map(n=>String(Math.floor(n)).padStart(2,"0")).join(":")}
-$("startBtn").onclick=()=>{running={no:current,start:Date.now()};store.set("running",running);syncTimer();renderLog()};
-$("stopBtn").onclick=()=>{log.unshift({no:running.no,start:running.start,end:Date.now()});running=null;store.set("running",null);store.set("log",log);syncTimer();renderLog()};
+$("startBtn").onclick=()=>{running={no:current,name:orders.get(current)?.name||"",start:Date.now()};store.set("running",running);syncTimer();renderLog()};
+$("stopBtn").onclick=()=>{log.unshift({no:running.no,name:running.name,start:running.start,end:Date.now()});running=null;store.set("running",null);store.set("log",log);syncTimer();renderLog()};
 $("clearBtn").onclick=()=>{current=null;$("order").hidden=true;clearInterval(timer);hush();window.scrollTo({top:0,behavior:"smooth"})};
 
 const hm=ms=>new Date(ms).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",hour12:false});
@@ -391,7 +423,7 @@ function renderLog(){
   const rows=[...(running?[{...running,end:null}]:[]),...log.filter(r=>new Date(r.start).toDateString()===day)];
   if(!rows.length){const p=document.createElement("p");p.className="empty";p.textContent=t("empty");el.append(p);return}
   for(const r of rows){
-    const o=byNo[r.no]||{name:""},d=document.createElement("div");d.className="row";
+    const o={name:r.name||orders.get(r.no)?.name||""},d=document.createElement("div");d.className="row";
     const a=document.createElement("div");a.className="mono";a.textContent=r.no;
     const b=document.createElement("div");b.className="r mono";b.textContent=hm(r.start)+" – "+(r.end?hm(r.end):"…");
     const c=document.createElement("div");c.className="sub";c.textContent=o.name;
@@ -416,6 +448,11 @@ function renderSlips(){
     JsBarcode(s.querySelector(".bc-no"),o.no,{format:"CODE128",height:70,width:2,margin:12,displayValue:false,background:"#ffffff",lineColor:"#000000"});
   }
 }
+
+function showPin(){$("pinPanel").hidden=false;$("pinInput").focus()}
+$("pinGo").onclick=()=>{const v=$("pinInput").value.trim();if(!v)return;store.set("pin",v);$("pinInput").value="";$("pinPanel").hidden=true;hush()};
+$("pinInput").addEventListener("keydown",e=>{if(e.key==="Enter")$("pinGo").click()});
+if(!DEMO){ $("tab-sheet").hidden=true; document.querySelector(".tabs").style.gridTemplateColumns="1fr"; if(!store.get("pin","")) showPin() }
 
 applyLang();
 </script>

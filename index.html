@@ -9,18 +9,18 @@
 :root{
   --bg:#eef1f4; --surface:#ffffff; --ink:#15202b; --muted:#5b6876; --line:#d5dce3;
   --accent:#f2c200; --accent-ink:#1b1600; --go:#1d8a4c; --stop:#c43a2f; --warn-bg:#fff4cc; --warn-ink:#6b5200;
-  --rework:#b54708; --rework-bg:#fdead7;
+  --rework:#b54708; --rework-bg:#fdead7; --go-bg:#e2f3e9;
   --font-body:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
   --font-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#0f151b; --surface:#18212a; --ink:#e6ebf0; --muted:#97a4b2; --line:#2c3843;
   --accent:#f2c200; --accent-ink:#1b1600; --go:#2fa866; --stop:#e05547; --warn-bg:#3a3110; --warn-ink:#f3dc8a;
-  --rework:#f79a4f; --rework-bg:#3b2414; color-scheme:dark}}
+  --rework:#f79a4f; --rework-bg:#3b2414; --go-bg:#13301f; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#0f151b; --surface:#18212a; --ink:#e6ebf0; --muted:#97a4b2; --line:#2c3843;
   --accent:#f2c200; --accent-ink:#1b1600; --go:#2fa866; --stop:#e05547; --warn-bg:#3a3110; --warn-ink:#f3dc8a;
-  --rework:#f79a4f; --rework-bg:#3b2414; color-scheme:dark}
+  --rework:#f79a4f; --rework-bg:#3b2414; --go-bg:#13301f; color-scheme:dark}
 *,*::before,*::after{box-sizing:border-box}
 [hidden]{display:none!important}
 body{margin:0}
@@ -66,9 +66,19 @@ h1{font-size:20px;margin:0;text-wrap:balance}
 .order dd{margin:0;font-size:18px;font-weight:600;min-width:0;overflow-wrap:anywhere}
 .order .no{font-size:26px}
 .tag{display:inline-block;font-size:13px;font-weight:700;padding:1px 8px;border-radius:4px;background:var(--rework-bg);color:var(--rework);margin-left:6px;vertical-align:middle}
-.clock{text-align:center;font-size:44px;font-weight:600}
-.clock small{display:block;font-family:var(--font-body);font-size:14px;color:var(--muted);font-weight:500;letter-spacing:0}
+.phase{text-align:center;border-radius:12px;padding:12px;background:var(--warn-bg);color:var(--warn-ink)}
+.phase[data-phase="run"]{background:var(--go-bg);color:var(--go)}
+.phase-name{font-size:20px;font-weight:700}
+.clock{font-size:44px;font-weight:600;color:var(--ink)}
+.done{display:flex;flex-direction:column;gap:10px}
+.done label{font-size:18px;font-weight:700}
+.done input{font:inherit;font-family:var(--font-mono);font-size:32px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);width:100%}
+.msg.ok{background:var(--go-bg);color:var(--go)}
 .log{display:flex;flex-direction:column}
+.group{padding:10px 0;border-top:2px solid var(--line)}
+.group .head{font-weight:700}
+.group .sum{font-size:14px;font-weight:600;margin-top:2px}
+.group .row{padding:6px 0 6px 12px;border-top:1px dashed var(--line);font-size:14px}
 .log h2,.sheet h2{font-size:15px;margin:0 0 6px;color:var(--muted);font-weight:600}
 .row{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:10px 0;border-top:1px solid var(--line)}
 .row .r{text-align:right}
@@ -134,14 +144,24 @@ h1{font-size:20px;margin:0;text-wrap:balance}
         <dt data-t="fCode">產品編號</dt><dd class="mono" id="oCode"></dd>
         <dt data-t="fQty">數量</dt><dd id="oQty"></dd>
       </dl>
-      <div class="clock mono" id="clock" hidden>00:00:00<small data-t="working">工作中</small></div>
-      <button class="btn btn-go" id="startBtn" data-t="start">開始</button>
-      <button class="btn btn-stop" id="stopBtn" data-t="stop" hidden>結束</button>
-      <button class="btn btn-ghost" id="clearBtn" data-t="another">換一張單</button>
+      <div class="phase" id="phase" hidden>
+        <div class="phase-name" id="phaseName"></div>
+        <div class="clock mono" id="clock">00:00:00</div>
+      </div>
+      <button class="btn btn-go" id="endPrepBtn" data-t="endPrep" hidden>前置結束，開始上機</button>
+      <button class="btn btn-stop" id="endRunBtn" data-t="endRun" hidden>上機結束</button>
+      <div class="done" id="donePanel" hidden>
+        <label for="doneInput" data-t="doneAsk">完成顆數</label>
+        <input id="doneInput" class="mono" type="number" inputmode="numeric" min="0" step="1" autocomplete="off">
+        <div id="doneErr" class="msg err" data-t="needQty" hidden></div>
+        <button class="btn btn-stop" id="saveBtn" data-t="saveEnd">確認，結束計時</button>
+        <button class="btn btn-ghost" id="backBtn" data-t="back">返回</button>
+      </div>
+      <button class="btn btn-ghost" id="cancelBtn" data-t="cancelPrep" hidden>掃錯單，取消</button>
     </section>
 
     <section class="panel log">
-      <h2 data-t="today">今天的紀錄</h2>
+      <h2 data-t="records">工時紀錄</h2>
       <div id="log"></div>
       <p class="note" data-t="logNote">測試版：紀錄只存在這支手機，不會上傳。</p>
     </section>
@@ -192,34 +212,38 @@ function lookupFailed(e){say(e instanceof LookupError&&e.message==="pin"?"badPin
 // ---- Languages ----
 const T = {
   zh:{title:"工令單掃描",demo:"測試版・假資料",tabScan:"掃描",tabSheet:"測試工令單",scan:"改用拍照",live:"掃描工令單",aim:"把「工令單號」條碼放進框內",torch:"手電筒",closeCam:"關閉鏡頭",camErr:"無法開啟鏡頭。請允許使用相機，或改用拍照。",find:"查詢",pinAsk:"請輸入工廠密碼（只需輸入一次）",ok:"確定",badPin:"工廠密碼不正確，請重新輸入。",netErr:"連不上工令單資料，請確認網路後再試。",live1:"測試版",
-      fNo:"工令單號",fName:"產品名稱",fCode:"產品編號",fQty:"數量",working:"工作中",start:"開始",stop:"結束",another:"換一張單",
-      today:"今天的紀錄",logNote:"測試版：紀錄只存在這支手機，不會上傳。",rework:"重工",
+      fNo:"工令單號",fName:"產品名稱",fCode:"產品編號",fQty:"數量",
+      logNote:"測試版：紀錄只存在這支手機，不會上傳。",rework:"重工",
       busy:"讀取中…",noCode:"沒有讀到工令單號條碼。請把「工令單號」那條拍清楚、拍正，再試一次。",
-      badFormat:"這不是工令單號（應為 1 個英文字加 10 位數字）。",notFound:"查無此單：",empty:"今天還沒有紀錄。",
+      badFormat:"這不是工令單號（應為 1 個英文字加 10 位數字）。",notFound:"查無此單：",
+      records:"工時紀錄",empty:"還沒有紀錄。",phasePrep:"前置作業",phaseRun:"上機作業",endPrep:"前置結束，開始上機",endRun:"上機結束",doneAsk:"完成顆數",saveEnd:"確認，結束計時",back:"返回",cancelPrep:"掃錯單，取消",finishFirst:"還有一張單在計時中，請先把它結束，才能開始下一張。",needQty:"請輸入完成顆數（整數）。",saved:"已記錄，辛苦了！",done:"完成",pcs:"顆",
       inProgress:"進行中",min:"分鐘",
       sheetNote:"用電腦開這一頁，再用手機的「掃描」頁對著螢幕拍照。全部是編造的測試資料。",
       slipNo:"工令單號",slipQty:"數量"},
   vi:{title:"Quét lệnh sản xuất",demo:"Bản thử・Dữ liệu giả",tabScan:"Quét",tabSheet:"Phiếu thử",scan:"Chụp ảnh thay thế",live:"Quét phiếu",aim:"Đưa mã vạch “工令單號” vào khung",torch:"Đèn pin",closeCam:"Tắt camera",camErr:"Không mở được camera. Hãy cho phép dùng camera, hoặc chụp ảnh.",find:"Tìm",pinAsk:"Nhập mật khẩu nhà máy (chỉ một lần)",ok:"OK",badPin:"Mật khẩu nhà máy không đúng, hãy nhập lại.",netErr:"Không kết nối được dữ liệu. Kiểm tra mạng rồi thử lại.",live1:"Bản thử",
-      fNo:"Số lệnh SX",fName:"Tên sản phẩm",fCode:"Mã sản phẩm",fQty:"Số lượng",working:"Đang làm",start:"Bắt đầu",stop:"Kết thúc",another:"Quét phiếu khác",
-      today:"Hôm nay",logNote:"Bản thử: dữ liệu chỉ lưu trên điện thoại này.",rework:"Làm lại",
+      fNo:"Số lệnh SX",fName:"Tên sản phẩm",fCode:"Mã sản phẩm",fQty:"Số lượng",
+      logNote:"Bản thử: dữ liệu chỉ lưu trên điện thoại này.",rework:"Làm lại",
       busy:"Đang đọc…",noCode:"Không đọc được mã vạch số lệnh. Hãy chụp rõ và thẳng mã vạch “工令單號”, rồi thử lại.",
-      badFormat:"Đây không phải số lệnh SX (1 chữ cái + 10 chữ số).",notFound:"Không tìm thấy phiếu: ",empty:"Hôm nay chưa có dữ liệu.",
+      badFormat:"Đây không phải số lệnh SX (1 chữ cái + 10 chữ số).",notFound:"Không tìm thấy phiếu: ",
+      records:"Nhật ký giờ làm",empty:"Chưa có dữ liệu.",phasePrep:"Chuẩn bị",phaseRun:"Chạy máy",endPrep:"Xong chuẩn bị, bắt đầu chạy máy",endRun:"Kết thúc chạy máy",doneAsk:"Số viên hoàn thành",saveEnd:"Xác nhận, dừng tính giờ",back:"Quay lại",cancelPrep:"Quét nhầm phiếu, hủy",finishFirst:"Còn một phiếu đang tính giờ. Hãy kết thúc phiếu đó trước khi bắt đầu phiếu mới.",needQty:"Hãy nhập số viên hoàn thành (số nguyên).",saved:"Đã lưu. Cảm ơn bạn!",done:"Hoàn thành",pcs:"viên",
       inProgress:"Đang làm",min:"phút",
       sheetNote:"Mở trang này trên máy tính, rồi dùng trang “Quét” trên điện thoại để chụp màn hình. Dữ liệu đều là giả.",
       slipNo:"Số lệnh SX",slipQty:"Số lượng"},
   id:{title:"Pindai Perintah Kerja",demo:"Versi uji・Data palsu",tabScan:"Pindai",tabSheet:"Lembar uji",scan:"Pakai foto saja",live:"Pindai lembar kerja",aim:"Arahkan barcode “工令單號” ke dalam kotak",torch:"Senter",closeCam:"Tutup kamera",camErr:"Kamera tidak bisa dibuka. Izinkan kamera, atau pakai foto.",find:"Cari",pinAsk:"Masukkan kata sandi pabrik (cukup sekali)",ok:"OK",badPin:"Kata sandi pabrik salah, masukkan lagi.",netErr:"Tidak bisa terhubung ke data. Periksa internet lalu coba lagi.",live1:"Versi uji",
-      fNo:"No. perintah kerja",fName:"Nama produk",fCode:"Kode produk",fQty:"Jumlah",working:"Sedang bekerja",start:"Mulai",stop:"Selesai",another:"Pindai lembar lain",
-      today:"Catatan hari ini",logNote:"Versi uji: catatan hanya tersimpan di HP ini.",rework:"Pengerjaan ulang",
+      fNo:"No. perintah kerja",fName:"Nama produk",fCode:"Kode produk",fQty:"Jumlah",
+      logNote:"Versi uji: catatan hanya tersimpan di HP ini.",rework:"Pengerjaan ulang",
       busy:"Membaca…",noCode:"Barcode nomor kerja tidak terbaca. Foto barcode “工令單號” dengan jelas dan lurus, lalu coba lagi.",
-      badFormat:"Ini bukan nomor kerja (1 huruf + 10 angka).",notFound:"Lembar tidak ditemukan: ",empty:"Belum ada catatan hari ini.",
+      badFormat:"Ini bukan nomor kerja (1 huruf + 10 angka).",notFound:"Lembar tidak ditemukan: ",
+      records:"Catatan jam kerja",empty:"Belum ada catatan.",phasePrep:"Persiapan",phaseRun:"Kerja mesin",endPrep:"Persiapan selesai, mulai mesin",endRun:"Kerja mesin selesai",doneAsk:"Jumlah butir selesai",saveEnd:"Konfirmasi, hentikan waktu",back:"Kembali",cancelPrep:"Salah pindai, batalkan",finishFirst:"Masih ada lembar yang sedang dihitung waktunya. Selesaikan dulu sebelum mulai lembar baru.",needQty:"Masukkan jumlah butir selesai (bilangan bulat).",saved:"Tersimpan. Terima kasih!",done:"Selesai",pcs:"butir",
       inProgress:"Berjalan",min:"menit",
       sheetNote:"Buka halaman ini di komputer, lalu foto layar dengan halaman “Pindai” di HP. Semua data palsu.",
       slipNo:"No. perintah kerja",slipQty:"Jumlah"},
   th:{title:"สแกนใบสั่งงาน",demo:"ทดลอง・ข้อมูลสมมติ",tabScan:"สแกน",tabSheet:"ใบทดสอบ",scan:"ใช้การถ่ายรูปแทน",live:"สแกนใบสั่งงาน",aim:"เล็งบาร์โค้ด “工令單號” ให้อยู่ในกรอบ",torch:"ไฟฉาย",closeCam:"ปิดกล้อง",camErr:"เปิดกล้องไม่ได้ กรุณาอนุญาตกล้อง หรือใช้การถ่ายรูป",find:"ค้นหา",pinAsk:"กรอกรหัสผ่านโรงงาน (ครั้งเดียว)",ok:"ตกลง",badPin:"รหัสผ่านโรงงานไม่ถูกต้อง กรุณากรอกใหม่",netErr:"เชื่อมต่อข้อมูลไม่ได้ ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่",live1:"ทดลอง",
-      fNo:"เลขใบสั่งงาน",fName:"ชื่อสินค้า",fCode:"รหัสสินค้า",fQty:"จำนวน",working:"กำลังทำงาน",start:"เริ่ม",stop:"เสร็จ",another:"สแกนใบอื่น",
-      today:"บันทึกวันนี้",logNote:"ทดลอง: บันทึกเก็บไว้ในโทรศัพท์เครื่องนี้เท่านั้น",rework:"งานแก้ไข",
+      fNo:"เลขใบสั่งงาน",fName:"ชื่อสินค้า",fCode:"รหัสสินค้า",fQty:"จำนวน",
+      logNote:"ทดลอง: บันทึกเก็บไว้ในโทรศัพท์เครื่องนี้เท่านั้น",rework:"งานแก้ไข",
       busy:"กำลังอ่าน…",noCode:"อ่านบาร์โค้ดเลขใบสั่งงานไม่ได้ ถ่ายบาร์โค้ด “工令單號” ให้ชัดและตรง แล้วลองใหม่",
-      badFormat:"ไม่ใช่เลขใบสั่งงาน (ตัวอักษร 1 ตัว + ตัวเลข 10 หลัก)",notFound:"ไม่พบใบสั่งงาน: ",empty:"วันนี้ยังไม่มีบันทึก",
+      badFormat:"ไม่ใช่เลขใบสั่งงาน (ตัวอักษร 1 ตัว + ตัวเลข 10 หลัก)",notFound:"ไม่พบใบสั่งงาน: ",
+      records:"บันทึกเวลาทำงาน",empty:"ยังไม่มีบันทึก",phasePrep:"เตรียมงาน",phaseRun:"เดินเครื่อง",endPrep:"เตรียมงานเสร็จ เริ่มเดินเครื่อง",endRun:"เดินเครื่องเสร็จ",doneAsk:"จำนวนเม็ดที่เสร็จ",saveEnd:"ยืนยัน หยุดจับเวลา",back:"กลับ",cancelPrep:"สแกนผิดใบ ยกเลิก",finishFirst:"ยังมีใบที่กำลังจับเวลาอยู่ กรุณาจบใบนั้นก่อนเริ่มใบใหม่",needQty:"กรุณากรอกจำนวนเม็ดที่เสร็จ (จำนวนเต็ม)",saved:"บันทึกแล้ว ขอบคุณ!",done:"เสร็จ",pcs:"เม็ด",
       inProgress:"กำลังทำ",min:"นาที",
       sheetNote:"เปิดหน้านี้บนคอมพิวเตอร์ แล้วใช้หน้า “สแกน” บนโทรศัพท์ถ่ายรูปหน้าจอ ข้อมูลทั้งหมดเป็นข้อมูลสมมติ",
       slipNo:"เลขใบสั่งงาน",slipQty:"จำนวน"},
@@ -394,41 +418,76 @@ $("torchBtn").onclick=()=>{const tr=stream?.getVideoTracks()[0];if(!tr)return;to
 document.addEventListener("visibilitychange",()=>{if(document.hidden&&stream)stopCam()});
 if(!navigator.mediaDevices?.getUserMedia) $("liveBtn").hidden=true;
 
-// ---- Order + timer ----
+// ---- Order + phase timer ----
+// One job at a time. Scanning starts 前置 (prep), or 上機 (run) directly for an order already worked on;
+// ending prep starts run right away; ending run asks for the finished count.
+// Every finished phase is its own log entry so prep and run time stay separate for wage calculation later.
 let current=null,timer=null;
-let running=store.get("running",null);   // {no,start}
-let log=store.get("log",[]);              // [{no,start,end}]
-function open(no){hush();current=no;showOrder(no);$("manualNo").value="";$("order").scrollIntoView({behavior:"smooth",block:"start"})}
+let running=store.get("running",null);   // {no,phase:"prep"|"run",start,o,scanned}  scanned: started by a scan, may be cancelled
+let log=store.get("log",[]).map(r=>({phase:"run",...r}));   // newest first: [{no,name,phase,start,end,done?}]
+if(running){running.phase??="prep"; if(running.o) orders.set(running.no,running.o); current=running.no}
+function save(){store.set("running",running);store.set("log",log);renderLog()}
+function open(no){
+  hush(); $("manualNo").value="";
+  if(running&&running.no!==no){no=running.no;say("finishFirst")}
+  else if(!running){running={no,phase:log.some(r=>r.no===no)?"run":"prep",start:Date.now(),o:orders.get(no),scanned:true};save()}
+  current=no; showOrder(no); $("order").scrollIntoView({behavior:"smooth",block:"start"});
+}
 function showOrder(no){
-  const o=orders.get(no); $("order").hidden=false;
+  const o=orders.get(no)||{no,name:running?.name||"",code:"",qty:"",unit:""}; $("order").hidden=false;
   $("oNo").textContent=o.no; $("oName").textContent=o.name; $("oCode").textContent=o.code;
   $("oQty").textContent=o.qty.toLocaleString()+" "+o.unit;
   if(o.rework){const s=document.createElement("span");s.className="tag";s.textContent=t("rework");$("oNo").append(s)}
   syncTimer();
 }
+function closeOrder(){current=null;$("order").hidden=true;$("donePanel").hidden=true;clearInterval(timer)}
 function syncTimer(){
-  const mine=running&&current&&running.no===current, other=running&&!mine;
-  $("startBtn").hidden=!!mine; $("stopBtn").hidden=!mine; $("clock").hidden=!mine;
-  $("startBtn").disabled=!!other;
-  clearInterval(timer); if(mine){tick();timer=setInterval(tick,1000)}
+  const on=!!running&&running.no===current, prep=on&&running.phase==="prep", asking=!$("donePanel").hidden;
+  $("phase").hidden=!on;
+  if(on){$("phase").dataset.phase=running.phase;$("phaseName").textContent=t(prep?"phasePrep":"phaseRun")}
+  $("endPrepBtn").hidden=!prep; $("cancelBtn").hidden=!on||!running.scanned||asking; $("endRunBtn").hidden=!on||prep||asking;
+  clearInterval(timer); if(on){tick();timer=setInterval(tick,1000)}
 }
-function tick(){const s=Math.floor((Date.now()-running.start)/1000);$("clock").firstChild.textContent=[s/3600,s%3600/60,s%60].map(n=>String(Math.floor(n)).padStart(2,"0")).join(":")}
-$("startBtn").onclick=()=>{running={no:current,name:orders.get(current)?.name||"",start:Date.now()};store.set("running",running);syncTimer();renderLog()};
-$("stopBtn").onclick=()=>{log.unshift({no:running.no,name:running.name,start:running.start,end:Date.now()});running=null;store.set("running",null);store.set("log",log);syncTimer();renderLog()};
-$("clearBtn").onclick=()=>{current=null;$("order").hidden=true;clearInterval(timer);hush();window.scrollTo({top:0,behavior:"smooth"})};
+function tick(){const s=Math.floor((Date.now()-running.start)/1000);$("clock").textContent=[s/3600,s%3600/60,s%60].map(n=>String(Math.floor(n)).padStart(2,"0")).join(":")}
+const finish=(end,extra)=>({no:running.no,name:running.o?.name||running.name||"",phase:running.phase,start:running.start,end,...extra});
+$("endPrepBtn").onclick=()=>{const now=Date.now();log.unshift(finish(now));running={...running,phase:"run",start:now,scanned:false};save();syncTimer()};
+$("endRunBtn").onclick=()=>{$("donePanel").hidden=false;$("doneErr").hidden=true;$("doneInput").value="";syncTimer();$("doneInput").focus()};
+$("backBtn").onclick=()=>{$("donePanel").hidden=true;syncTimer()};
+$("saveBtn").onclick=()=>{
+  const v=$("doneInput").value.trim(), n=Number(v);
+  if(v===""||!Number.isInteger(n)||n<0){$("doneErr").hidden=false;return}
+  log.unshift(finish(Date.now(),{done:n})); running=null; save(); closeOrder();
+  say("saved","","ok"); window.scrollTo({top:0,behavior:"smooth"});
+};
+$("doneInput").addEventListener("keydown",e=>{if(e.key==="Enter")$("saveBtn").click()});
+$("cancelBtn").onclick=()=>{running=null;save();closeOrder();hush()};
 
 const hm=ms=>new Date(ms).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",hour12:false});
+const md=ms=>{const d=new Date(ms);return (d.getMonth()+1)+"/"+d.getDate()};
+const mins=ms=>Math.max(1,Math.round(ms/60000))+" "+t("min");
+const div=(cls,text)=>{const d=document.createElement("div");d.className=cls;d.textContent=text;return d};
+// Grouped by work order, most recently active first; each group totals prep time, run time and finished count.
 function renderLog(){
-  const day=new Date().toDateString(), el=$("log"); el.textContent="";
-  const rows=[...(running?[{...running,end:null}]:[]),...log.filter(r=>new Date(r.start).toDateString()===day)];
+  const el=$("log"); el.textContent="";
+  const rows=[...(running?[{...running,name:running.o?.name||running.name||"",end:null}]:[]),...log];
   if(!rows.length){const p=document.createElement("p");p.className="empty";p.textContent=t("empty");el.append(p);return}
-  for(const r of rows){
-    const o={name:r.name||orders.get(r.no)?.name||""},d=document.createElement("div");d.className="row";
-    const a=document.createElement("div");a.className="mono";a.textContent=r.no;
-    const b=document.createElement("div");b.className="r mono";b.textContent=hm(r.start)+" – "+(r.end?hm(r.end):"…");
-    const c=document.createElement("div");c.className="sub";c.textContent=o.name;
-    const e=document.createElement("div");e.className="r sub";e.textContent=r.end?Math.max(1,Math.round((r.end-r.start)/60000))+" "+t("min"):t("inProgress");
-    d.append(a,b,c,e);el.append(d);
+  const groups=new Map();
+  for(const r of rows){if(!groups.has(r.no))groups.set(r.no,[]);groups.get(r.no).push(r)}
+  for(const [no,rs] of groups){
+    const sum={prep:0,run:0,done:0};
+    for(const r of rs){if(r.end)sum[r.phase]+=r.end-r.start;sum.done+=r.done||0}
+    const g=document.createElement("div");g.className="group";
+    g.append(div("head mono",no),div("sub",rs.find(r=>r.name)?.name||""),
+      div("sum",[t("phasePrep")+" "+(sum.prep?mins(sum.prep):"—"),t("phaseRun")+" "+(sum.run?mins(sum.run):"—"),t("done")+" "+sum.done.toLocaleString()+" "+t("pcs")].join("・")));
+    for(const r of rs){
+      const d=document.createElement("div");d.className="row";
+      d.append(div("",t(r.phase==="prep"?"phasePrep":"phaseRun")),
+        div("r mono",md(r.start)+" "+hm(r.start)+" – "+(r.end?hm(r.end):"…")),
+        div("sub",r.done!=null?t("done")+" "+r.done.toLocaleString()+" "+t("pcs"):""),
+        div("r sub",r.end?mins(r.end-r.start):t("inProgress")));
+      g.append(d);
+    }
+    el.append(g);
   }
 }
 

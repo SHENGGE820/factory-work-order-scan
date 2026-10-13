@@ -4,11 +4,11 @@ const rows=[["工令單明細","","","",""],["產品編號","產品名稱","數�
  ["4100000000011","測試品A","1,000","袋","V1150101001"],
  ["重工-\n4100000000042","測試品B","623","盒","重工換包裝\nX1150102004"],
  ["","","","",""]];
-const props={PIN:"1234"};let cached=null;
+const props={PIN:"1234",SHEET_ID:"test-id"};let cached=null;
 const g={
  PropertiesService:{getScriptProperties:()=>({getProperty:k=>props[k]})},
  CacheService:{getScriptCache:()=>({get:()=>cached,put:(k,v)=>{cached=v},remove:()=>{cached=null}})},
- SpreadsheetApp:{getActiveSpreadsheet:()=>({getSheets:()=>[{getDataRange:()=>({getDisplayValues:()=>rows})}],getSheetByName:()=>null})},
+ SpreadsheetApp:{openById:id=>{if(id!=='test-id')throw new Error('bad id');return {getSheets:()=>[],getSheetByName:n=>n==='訂單計畫單(NEW)'?{getDataRange:()=>({getDisplayValues:()=>rows})}:null};}},
  Utilities:{sleep(){}},
  ContentService:{MimeType:{JSON:'json'},createTextOutput:t=>({setMimeType:()=>t})},
  Logger:{log:(...a)=>console.log('LOG',...a)},

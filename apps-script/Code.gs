@@ -1,15 +1,17 @@
 /**
  * 工令單查詢（Google Apps Script）
  *
- * 放在工令單試算表裡（擴充功能 → Apps Script），部署成「網頁應用程式」。
+ * 兩種放法，部署成「網頁應用程式」：
+ *  1. 放在工令單試算表裡（擴充功能 → Apps Script）。
+ *  2. 對試算表只有檢視權限時：在 script.google.com 另開專案，指令碼屬性加 SHEET_ID（試算表網址 /d/ 後面那串）。
  * 手機 App 送來一個工令單號，這裡只回傳四項：工令單號、產品名稱、產品編號、數量＋單位。
  * 不提供列出全部單據的功能，也不回傳其他欄位。
  *
- * 必要設定：專案設定 → 指令碼屬性 → 新增 PIN（工廠密碼）。PIN 不要寫在這個檔案裡。
+ * 必要設定：專案設定 → 指令碼屬性 → 新增 PIN（工廠密碼）。PIN、SHEET_ID 都不要寫在這個檔案裡。
  */
 const CONFIG = {
-  // 留空＝自動找出所有含「工令單號」標題的工作表；也可以填單一工作表名稱。
-  SHEET_NAME: '',
+  // 只讀這個工作表；留空＝自動找出所有含「工令單號」標題的工作表。
+  SHEET_NAME: '訂單計畫單(NEW)',
   HEADERS: { no: '工令單號', name: '產品名稱', code: '產品編號', qty: '數量', unit: '單位' },
   HEADER_SEARCH_ROWS: 10,
   CACHE_SECONDS: 300, // 試算表改了之後，最多 5 分鐘內會反映到 App
@@ -35,7 +37,8 @@ function index_() {
   const hit = cache.get('idx');
   if (hit) return JSON.parse(hit);
 
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheetId = PropertiesService.getScriptProperties().getProperty('SHEET_ID');
+  const ss = sheetId ? SpreadsheetApp.openById(sheetId) : SpreadsheetApp.getActiveSpreadsheet();
   const sheets = CONFIG.SHEET_NAME ? [ss.getSheetByName(CONFIG.SHEET_NAME)] : ss.getSheets();
   const idx = {};
   sheets.filter(Boolean).forEach(sh => {

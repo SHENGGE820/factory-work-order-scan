@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>生產組在途工單</title>
+<link rel="icon" href="icons/icon-192.png">
+<style>
+/* Desktop form for the 五股廠(生產組) sheet of BKE在途工單. Same colour tokens as the scan app. */
+:root{
+  --bg:#eef1f4; --surface:#ffffff; --ink:#15202b; --muted:#5b6876; --line:#d5dce3;
+  --accent:#f2c200; --accent-ink:#1b1600; --go:#1d8a4c; --go-bg:#e2f3e9; --stop:#c43a2f; --warn-bg:#fff4cc; --warn-ink:#6b5200;
+  --font-body:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f151b; --surface:#18212a; --ink:#e6ebf0; --muted:#97a4b2; --line:#2c3843;
+  --go:#2fa866; --go-bg:#13301f; --stop:#e05547; --warn-bg:#3a3110; --warn-ink:#f3dc8a; color-scheme:dark}}
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;background:var(--bg);color:var(--ink)}
+body{font-family:var(--font-body);font-size:15px;line-height:1.5;padding:16px}
+.wrap{max-width:1280px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+header{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+h1{font-size:22px;margin:0}
+h2{font-size:16px;margin:0}
+a{color:inherit}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field>span{font-size:13px;color:var(--muted)}
+.field.wide{grid-column:1/-1}
+input,select,textarea{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-height:38px;width:100%}
+textarea{resize:vertical;min-height:64px}
+input[readonly]{opacity:.75}
+input:focus-visible,select:focus-visible,textarea:focus-visible,.btn:focus-visible{outline:3px solid var(--accent);outline-offset:1px}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.check{flex-direction:row;align-items:center;gap:8px;padding-top:20px}
+.check input{width:20px;min-height:20px;height:20px}
+.check>span{font-size:15px;color:var(--ink)}
+.sec{grid-column:1/-1;font-size:13px;font-weight:700;color:var(--muted);border-bottom:1px solid var(--line);padding-bottom:4px;margin-top:4px}
+.btn{cursor:pointer;font:inherit;font-weight:700;border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:8px;padding:8px 16px;min-height:40px}
+.btn-go{background:var(--go);border-color:var(--go);color:#fff}
+.btn-stop{color:var(--stop);border-color:var(--stop)}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.row-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.msg{padding:10px 14px;border-radius:8px;font-weight:600}
+.msg.err{background:var(--warn-bg);color:var(--warn-ink)}
+.msg.ok{background:var(--go-bg);color:var(--go)}
+.lookup{display:grid;grid-template-columns:minmax(220px,280px) auto 1fr;gap:10px;align-items:end}
+.info{padding:8px 12px;border-radius:8px;background:var(--bg);min-height:38px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tag{font-size:12px;font-weight:700;padding:1px 8px;border-radius:4px;background:#fdead7;color:#b54708}
+.tools{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.tools input[type=search]{max-width:260px}.tools select{max-width:200px}
+.tools label{display:flex;gap:6px;align-items:center}.tools label input{width:auto;min-height:0}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;padding:8px 10px;border-top:1px solid var(--line);vertical-align:top}
+th{font-size:13px;color:var(--muted);font-weight:600;white-space:nowrap}
+td.num{text-align:right;white-space:nowrap}
+tr.done td{opacity:.55}
+.note{font-size:13px;color:var(--muted);margin:0}
+@media (max-width:760px){.lookup{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>生產組在途工單 <small class="note">五股廠(生產組)・粉包</small></h1>
+    <a href="index.html">← 掃碼 App</a>
+  </header>
+
+  <section class="panel" id="pinPanel" hidden>
+    <label for="pinInput">請輸入工廠密碼（和掃碼 App 同一組，只需輸入一次）</label>
+    <div class="row-actions"><input id="pinInput" type="password" autocomplete="off" style="max-width:240px"><button class="btn btn-go" id="pinGo">確定</button></div>
+  </section>
+
+  <div id="msg" class="msg" hidden></div>
+
+  <section class="panel" id="formPanel" hidden>
+    <h2 id="formTitle">新增一筆</h2>
+    <div class="lookup">
+      <label class="field"><span>工令單號</span><input id="no" class="mono" maxlength="11" placeholder="V1150831005" autocomplete="off" style="text-transform:uppercase"></label>
+      <button class="btn" id="findBtn">帶出資料</button>
+      <div class="info" id="info"><span class="note">輸入工令單號後，產品編號、名稱、數量、單位會自動從訂單計畫單帶出。</span></div>
+    </div>
+    <div class="grid" id="fields"></div>
+    <div class="row-actions">
+      <button class="btn btn-go" id="saveBtn">儲存</button>
+      <button class="btn" id="resetBtn">清空重填</button>
+    </div>
+  </section>
+
+  <section class="panel" id="listPanel" hidden>
+    <div class="tools">
+      <h2 style="margin-right:auto">已存資料 <span class="note" id="count"></span></h2>
+      <input id="q" type="search" placeholder="搜尋工令單號、品名、人員">
+      <select id="machineFilter" aria-label="機台"><option value="">全部機台</option></select>
+      <label><input id="hideDone" type="checkbox"> 隱藏已完工</label>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>工令單號</th><th>產品</th><th>數量</th><th>機台</th><th>作業人員</th><th>預計完工</th><th>進度說明</th><th>領料</th><th>完工</th><th>更新</th><th></th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <p class="note" id="empty" hidden>還沒有資料。</p>
+  </section>
+</div>
+
+<script src="config.js"></script>
+<script>
+const API = window.APP_CONFIG?.sheetApi || "";
+const store = {get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
+const $ = id => document.getElementById(id);
+const FORMAT = /^[A-Z]\d{10}$/;
+// Field list follows the 五股廠(生產組) sheet minus its green columns. Dropdown lists come from the backend (they contain staff names).
+const FIELDS = [
+  {sec:"工令單"},
+  {k:"出貨點", t:"text", list:["出貨客戶","五股包裝"]},
+  {k:"交期", t:"text", ph:"115.1001"},
+  {k:"答交", t:"text", ph:"9/29"},
+  {k:"作業時間", t:"text", ph:"9/29~9/30"},
+  {sec:"生產"},
+  {k:"機台", t:"select", opt:"機台"},
+  {k:"作業人員1", t:"select", opt:"作業人員"},
+  {k:"作業人員2", t:"select", opt:"作業人員"},
+  {k:"作業人員3", t:"select", opt:"作業人員"},
+  {k:"作業人員4", t:"select", opt:"作業人員"},
+  {k:"人數", t:"select", opt:"人數"},
+  {k:"預計完工日", t:"select", opt:"預計完工日", pair:"天/時"},
+  {k:"製造日期", t:"date"},
+  {k:"生產進度", t:"number"},
+  {k:"完工時間", t:"date"},
+  {k:"實際用時(時)", t:"number"},
+  {k:"實際用時(分)", t:"number"},
+  {k:"進度說明", t:"select", opt:"進度說明"},
+  {sec:"物料"},
+  {k:"領料單號/調撥單號", t:"text", upper:true, ph:"W1150903013"},
+  {k:"到料時間", t:"text"},
+  {k:"領料", t:"check"},
+  {k:"工令完工", t:"check"},
+  {k:"備註", t:"area", wide:true},
+];
+let pin = store.get("pin", ""), options = {}, rows = [], editing = null, order = null;
+const inputs = {};
+
+function say(text, cls="err"){const m=$("msg");m.className="msg "+cls;m.textContent=text;m.hidden=!text}
+const ERR = {bad_pin:"工廠密碼不正確。", not_configured:"後端還沒設定密碼。", bad_format:"工令單號格式不對（1 個英文字加 10 位數字）。", not_found:"訂單計畫單查不到這個工令單號。", row_missing:"這筆資料已經不存在，請重新整理。", bad_request:"送出的資料有問題。"};
+async function request(fn){
+  try{
+    const res = await fn();
+    if(res.ok) return res;
+    if(res.error==="bad_pin"){store.set("pin","");pin="";showPin()}
+    say(ERR[res.error]||"發生錯誤："+res.error); return null;
+  }catch(e){say("連不上伺服器，請確認網路後再試。"); return null}
+}
+const get = params => request(async()=>(await fetch(API+"?"+new URLSearchParams({pin,...params}))).json());
+// text/plain keeps this a "simple" request, so the browser does not need a CORS preflight against Apps Script
+const post = body => request(async()=>(await fetch(API,{method:"POST",body:JSON.stringify({pin,...body})})).json());
+
+function showPin(){$("pinPanel").hidden=false;$("formPanel").hidden=true;$("listPanel").hidden=true;$("pinInput").focus()}
+$("pinGo").onclick=()=>{const v=$("pinInput").value.trim();if(!v)return;pin=v;store.set("pin",v);$("pinInput").value="";$("pinPanel").hidden=true;say("");start()};
+$("pinInput").addEventListener("keydown",e=>{if(e.key==="Enter")$("pinGo").click()});
+
+function makeSelect(key){
+  const s=document.createElement("select");
+  const list=options[key]||[];
+  s.append(new Option("",""));
+  for(const v of list) s.append(new Option(v,v));
+  return s;
+}
+function buildForm(){
+  const box=$("fields"); box.textContent=""; for(const k in inputs) delete inputs[k];
+  for(const f of FIELDS){
+    if(f.sec){const d=document.createElement("div");d.className="sec";d.textContent=f.sec;box.append(d);continue}
+    const lab=document.createElement("label"); lab.className="field"+(f.wide?" wide":"")+(f.t==="check"?" check":"");
+    const cap=document.createElement("span"); cap.textContent=f.k; let el;
+    if(f.t==="select"){
+      if(options[f.opt]?.length){el=makeSelect(f.opt)}
+      else{el=document.createElement("input");el.placeholder="（下拉選項尚未設定，先手打）"}
+    }else if(f.t==="area"){el=document.createElement("textarea")}
+    else{el=document.createElement("input"); el.type={check:"checkbox",number:"number",date:"date"}[f.t]||"text"; if(f.t==="number")el.step="any"}
+    if(f.ph) el.placeholder=f.ph;
+    if(f.upper) el.style.textTransform="uppercase";
+    if(f.list){const id="dl-"+f.k;el.setAttribute("list",id);const dl=document.createElement("datalist");dl.id=id;for(const v of f.list)dl.append(new Option(v));box.append(dl)}
+    inputs[f.k]=el;
+    if(f.pair){
+      const wrap=document.createElement("div");wrap.className="pair";
+      const second=options[f.pair]?.length?makeSelect(f.pair):Object.assign(document.createElement("input"),{placeholder:f.pair});
+      inputs[f.pair]=second; wrap.append(el,second); lab.append(cap,wrap); cap.textContent=f.k+" / "+f.pair;
+    }else lab.append(cap,el);
+    box.append(lab);
+  }
+}
+function fillForm(row){
+  for(const k in inputs){
+    const el=inputs[k], v=row?row[k]||"":"";
+    if(el.type==="checkbox") el.checked=v==="是"; else el.value=v;
+    if(el.tagName==="SELECT"&&v&&![...el.options].some(o=>o.value===v)) el.append(new Option(v,v)), el.value=v; // keep values that left the dropdown list
+  }
+}
+function readForm(){
+  const row={}; for(const k in inputs){const el=inputs[k]; row[k]=el.type==="checkbox"?(el.checked?"是":""):el.value.trim()}
+  if(row["領料單號/調撥單號"]) row["領料單號/調撥單號"]=row["領料單號/調撥單號"].toUpperCase();
+  return row;
+}
+
+function showInfo(o){
+  const i=$("info"); i.textContent="";
+  if(!o){const s=document.createElement("span");s.className="note";s.textContent="輸入工令單號後，產品編號、名稱、數量、單位會自動從訂單計畫單帶出。";i.append(s);return}
+  const code=document.createElement("span");code.className="mono";code.textContent=o.code;
+  const name=document.createElement("strong");name.textContent=o.name;
+  const qty=document.createElement("span");qty.textContent=o.qty+" "+o.unit;
+  i.append(code,name,qty);
+  if(o.rework){const t=document.createElement("span");t.className="tag";t.textContent="重工";i.append(t)}
+}
+async function find(){
+  const no=$("no").value.trim().toUpperCase(); $("no").value=no; order=null; showInfo(null);
+  if(!FORMAT.test(no)){say(ERR.bad_format);return false}
+  say(""); const res=await get({no}); if(!res) return false;
+  order=res.order; showInfo(order); return true;
+}
+$("findBtn").onclick=find;
+$("no").addEventListener("keydown",e=>{if(e.key==="Enter")find()});
+$("no").addEventListener("change",()=>{if(!editing)find()});
+
+function resetForm(){
+  editing=null; order=null; $("no").value=""; $("no").readOnly=false; showInfo(null); fillForm(null);
+  $("formTitle").textContent="新增一筆"; $("saveBtn").textContent="儲存";
+}
+$("resetBtn").onclick=()=>{resetForm();say("")};
+$("saveBtn").onclick=async()=>{
+  const no=$("no").value.trim().toUpperCase();
+  if(!FORMAT.test(no)) return say(ERR.bad_format);
+  $("saveBtn").disabled=true;
+  const row={...readForm(),工令單號:no}; if(editing) row.id=editing.id;
+  const res=await post({action:"save",row});
+  $("saveBtn").disabled=false; if(!res) return;
+  const at=rows.findIndex(r=>r.id===res.row.id); if(at>=0) rows[at]=res.row; else rows.push(res.row);
+  render(); const was=editing; resetForm();
+  say((was?"已更新 ":"已新增 ")+no,"ok");
+};
+
+const done=r=>r["工令完工"]==="是"||r["進度說明"]==="完工";
+function render(){
+  const q=$("q").value.trim().toLowerCase(), mc=$("machineFilter").value, hide=$("hideDone").checked;
+  const machines=[...new Set(rows.map(r=>r["機台"]).filter(Boolean))];
+  const cur=$("machineFilter").value; $("machineFilter").length=1; for(const m of machines) $("machineFilter").append(new Option(m,m)); $("machineFilter").value=machines.includes(cur)?cur:"";
+  const people=r=>[1,2,3,4].map(i=>r["作業人員"+i]).filter(Boolean).join("、");
+  const shown=rows.filter(r=>(!mc||r["機台"]===mc)&&(!hide||!done(r))&&(!q||[r["工令單號"],r["產品名稱"],r["產品編號"],people(r)].join(" ").toLowerCase().includes(q)))
+    .sort((a,b)=>b["更新時間"].localeCompare(a["更新時間"]));
+  $("count").textContent="（"+shown.length+" / "+rows.length+" 筆）"; $("empty").hidden=rows.length>0;
+  const body=$("rows"); body.textContent="";
+  for(const r of shown){
+    const tr=document.createElement("tr"); if(done(r)) tr.className="done";
+    const cell=(text,cls)=>{const td=document.createElement("td");if(cls)td.className=cls;td.textContent=text;tr.append(td);return td};
+    cell(r["工令單號"],"mono");
+    const p=cell(r["產品名稱"]); p.append(document.createElement("br")); const c=document.createElement("small");c.className="mono note";c.textContent=r["產品編號"];p.append(c);
+    cell(r["數量"]+" "+r["單位"],"num"); cell(r["機台"]); cell(people(r));
+    cell(r["預計完工日"]?r["預計完工日"]+(r["天/時"]||""):""); cell(r["進度說明"]);
+    cell(r["領料"]==="是"?"✔":""); cell(r["工令完工"]==="是"?"✔":""); cell(r["更新時間"].slice(5,16));
+    const act=document.createElement("td"); act.className="row-actions";
+    const ed=document.createElement("button");ed.className="btn";ed.textContent="編輯";ed.onclick=()=>edit(r);
+    const rm=document.createElement("button");rm.className="btn btn-stop";rm.textContent="刪除";rm.onclick=()=>remove(r);
+    act.append(ed,rm); tr.append(act); body.append(tr);
+  }
+}
+for(const id of ["q","machineFilter","hideDone"]) $(id).addEventListener("input",render);
+
+function edit(r){
+  editing=r; order={code:r["產品編號"],name:r["產品名稱"],qty:r["數量"],unit:r["單位"]};
+  $("no").value=r["工令單號"]; $("no").readOnly=true; showInfo(order); fillForm(r);
+  $("formTitle").textContent="編輯："+r["工令單號"]; $("saveBtn").textContent="儲存修改"; say("");
+  $("formPanel").scrollIntoView({behavior:"smooth",block:"start"});
+}
+async function remove(r){
+  if(!confirm("確定刪除 "+r["工令單號"]+"（"+r["產品名稱"]+"）這筆資料？\n刪除後無法復原。")) return;
+  const res=await post({action:"remove",id:r.id}); if(!res) return;
+  rows=rows.filter(x=>x.id!==r.id); if(editing?.id===r.id) resetForm(); render(); say("已刪除 "+r["工令單號"],"ok");
+}
+
+async function start(){
+  if(!API){say("還沒設定後端網址（config.js 的 sheetApi）。");return}
+  if(!pin){showPin();return}
+  say("讀取中…","ok");
+  const [o,l]=await Promise.all([get({action:"options"}),get({action:"list"})]);
+  if(!o||!l) return;
+  say(""); options=o.options||{}; rows=l.rows||[];
+  if(!Object.keys(options).length) say("下拉選項讀不到：請在 Apps Script 指令碼屬性加上 BKE_SHEET_ID。目前下拉欄位先用手打。");
+  buildForm(); resetForm(); $("formPanel").hidden=false; $("listPanel").hidden=false; render();
+}
+start();
+if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});
+</script>
+</body>
+</html>

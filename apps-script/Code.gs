@@ -1,13 +1,19 @@
 /**
- * 工令單查詢（Google Apps Script）
+ * 工令單查詢＋在途工單表單（Google Apps Script）
  *
  * 兩種放法，部署成「網頁應用程式」：
  *  1. 放在工令單試算表裡（擴充功能 → Apps Script）。
  *  2. 對試算表只有檢視權限時：在 script.google.com 另開專案，指令碼屬性加 SHEET_ID（試算表網址 /d/ 後面那串）。
- * 手機 App 送來一個工令單號，這裡只回傳四項：工令單號、產品名稱、產品編號、數量＋單位。
- * 不提供列出全部單據的功能，也不回傳其他欄位。
  *
- * 必要設定：專案設定 → 指令碼屬性 → 新增 PIN（工廠密碼）。PIN、SHEET_ID 都不要寫在這個檔案裡。
+ * 手機 App：送來一個工令單號，只回傳四項（工令單號、產品名稱、產品編號、數量＋單位）。
+ * 電腦表單（form.html）：用同一組工廠密碼，另外提供
+ *   action=options  讀「BKE在途工單」的「選單」分頁，回傳下拉選項（含員工名字，所以不放在公開網頁裡）
+ *   action=list     列出已存的生產組資料
+ *   save / remove   新增、修改、刪除一筆（POST）
+ * 資料存在這個帳號自己 Google 雲端的「五股廠生產組表單」試算表，第一次存檔時自動建立。
+ *
+ * 必要設定（專案設定 → 指令碼屬性）：PIN（工廠密碼）、SHEET_ID（訂單計畫單所在試算表）、
+ * BKE_SHEET_ID（BKE在途工單試算表，只在表單要用下拉選項時需要）。這些都不要寫在這個檔案裡。
  */
 const CONFIG = {
   // 只讀這個工作表；留空＝自動找出所有含「工令單號」標題的工作表。
@@ -20,16 +26,35 @@ const ORDER_NO = /[A-Z]\d{10}/g;
 
 function doGet(e) {
   const p = (e && e.parameter) || {};
+  const bad = auth_(p);
+  if (bad) return bad;
+  if (p.action === 'options') return json_({ ok: true, options: options_() });
+  if (p.action === 'list') return json_({ ok: true, rows: list_() });
+  const no = String(p.no || '').trim().toUpperCase();
+  if (!/^[A-Z]\d{10}$/.test(no)) return json_({ ok: false, error: 'bad_format' });
+  const order = index_()[no];
+  return json_(order ? { ok: true, order } : { ok: false, error: 'not_found' });
+}
+
+// 寫入一律用 POST（本文是 JSON 文字）：{ action:'save'|'remove', pin, row | id }
+function doPost(e) {
+  let p;
+  try { p = JSON.parse((e && e.postData && e.postData.contents) || '{}'); } catch (err) { return json_({ ok: false, error: 'bad_request' }); }
+  const bad = auth_(p);
+  if (bad) return bad;
+  if (p.action === 'save') return json_(save_(p.row || {}));
+  if (p.action === 'remove') return json_(remove_(String(p.id || '')));
+  return json_({ ok: false, error: 'bad_request' });
+}
+
+function auth_(p) {
   const pin = PropertiesService.getScriptProperties().getProperty('PIN');
   if (!pin) return json_({ ok: false, error: 'not_configured' });
   if (String(p.pin || '') !== pin) {
     Utilities.sleep(800);
     return json_({ ok: false, error: 'bad_pin' });
   }
-  const no = String(p.no || '').trim().toUpperCase();
-  if (!/^[A-Z]\d{10}$/.test(no)) return json_({ ok: false, error: 'bad_format' });
-  const order = index_()[no];
-  return json_(order ? { ok: true, order } : { ok: false, error: 'not_found' });
+  return null;
 }
 
 function index_() {
@@ -77,6 +102,130 @@ function findHeader_(rows) {
   return null;
 }
 
+// ---- 在途工單表單：五股廠生產組 ----
+const DB = {
+  NAME: '五股廠生產組表單',
+  SHEET: '生產組',
+  // 欄位依「BKE在途工單」的「五股廠(生產組)」分頁（綠色欄位除外）。
+  FIELDS: ['工令單號', '產品編號', '產品名稱', '數量', '單位', '出貨點', '交期',
+    '作業人員1', '作業人員2', '作業人員3', '作業人員4', '人數', '機台', '預計完工日', '天/時',
+    '製造日期', '生產進度', '完工時間', '實際用時(時)', '實際用時(分)', '進度說明',
+    '答交', '作業時間', '領料單號/調撥單號', '到料時間', '領料', '工令完工', '備註'],
+  FROM_ORDER: { '產品編號': 'code', '產品名稱': 'name', '數量': 'qty', '單位': 'unit' }, // 一律以訂單計畫單為準
+  // 「選單」分頁表頭 → 下拉選項名稱；第一欄（表頭是 0）是作業人員。
+  OPTION_HEADERS: { '人數': '人數', '生產機台': '機台', '預計完工日': '預計完工日', '天/時': '天/時', '進度說明': '進度說明' },
+  OPTIONS_SHEET: '選單',
+  TZ: 'Asia/Taipei',
+};
+const DB_HEAD = ['id', '建立時間', '更新時間'].concat(DB.FIELDS);
+
+function db_() {
+  const props = PropertiesService.getScriptProperties();
+  const id = props.getProperty('DB_ID');
+  if (id) return SpreadsheetApp.openById(id).getSheetByName(DB.SHEET);
+  const ss = SpreadsheetApp.create(DB.NAME);
+  props.setProperty('DB_ID', ss.getId());
+  const sh = ss.getSheets()[0];
+  sh.setName(DB.SHEET);
+  sh.getRange(1, 1, sh.getMaxRows(), DB_HEAD.length).setNumberFormat('@'); // 全部當文字，編號不會被改成數字
+  sh.getRange(1, 1, 1, DB_HEAD.length).setValues([DB_HEAD]).setFontWeight('bold');
+  sh.setFrozenRows(1);
+  return sh;
+}
+
+function rowToObj_(r) {
+  const o = {};
+  DB_HEAD.forEach((h, i) => { o[h] = r[i]; });
+  return o;
+}
+
+function list_() {
+  const rows = db_().getDataRange().getDisplayValues();
+  return rows.slice(1).filter(r => r[0]).map(rowToObj_);
+}
+
+function save_(row) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const sh = db_();
+    const data = sh.getDataRange().getDisplayValues();
+    const no = String(row['工令單號'] || '').trim().toUpperCase();
+    if (!/^[A-Z]\d{10}$/.test(no)) return { ok: false, error: 'bad_format' };
+    const id = String(row.id || '');
+    let at = -1;
+    if (id) {
+      for (let i = 1; i < data.length; i++) if (data[i][0] === id) { at = i; break; }
+      if (at < 0) return { ok: false, error: 'row_missing' };
+    }
+    const old = at >= 0 ? data[at] : null;
+    const order = index_()[no];
+    // 新增的單一定要查得到；修改舊紀錄時，單號沒變就算單已移到完工分頁也能改
+    if (!order && !(old && old[DB_HEAD.indexOf('工令單號')] === no)) return { ok: false, error: 'not_found' };
+    const now = Utilities.formatDate(new Date(), DB.TZ, 'yyyy-MM-dd HH:mm:ss');
+    const out = DB_HEAD.map((h, i) => {
+      if (h === 'id') return old ? old[0] : Utilities.getUuid();
+      if (h === '建立時間') return old ? old[1] : now;
+      if (h === '更新時間') return now;
+      if (h === '工令單號') return no;
+      if (order && DB.FROM_ORDER[h]) return String(order[DB.FROM_ORDER[h]] || '');
+      if (Object.prototype.hasOwnProperty.call(row, h)) return String(row[h] == null ? '' : row[h]).slice(0, 500);
+      return old ? old[i] : '';
+    });
+    const target = at >= 0 ? at + 1 : data.length + 1;
+    if (target > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), 200);
+    const range = sh.getRange(target, 1, 1, DB_HEAD.length);
+    range.setNumberFormat('@');
+    range.setValues([out]);
+    return { ok: true, row: rowToObj_(out) };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function remove_(id) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const sh = db_();
+    const data = sh.getDataRange().getDisplayValues();
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === id) { sh.deleteRow(i + 1); return { ok: true }; }
+    }
+    return { ok: false, error: 'row_missing' };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function options_() {
+  const cache = CacheService.getScriptCache();
+  const hit = cache.get('opts');
+  if (hit) return JSON.parse(hit);
+  const id = PropertiesService.getScriptProperties().getProperty('BKE_SHEET_ID');
+  const sh = id ? SpreadsheetApp.openById(id).getSheetByName(DB.OPTIONS_SHEET) : null;
+  const out = {};
+  if (sh) {
+    const rows = sh.getDataRange().getDisplayValues();
+    const head = rows[0].map(h => String(h).replace(/\s/g, ''));
+    const column = c => {
+      const seen = [];
+      for (let r = 1; r < rows.length; r++) {
+        const v = String(rows[r][c] || '').trim();
+        if (v && seen.indexOf(v) < 0) seen.push(v);
+      }
+      return seen;
+    };
+    out['作業人員'] = column(0);
+    Object.keys(DB.OPTION_HEADERS).forEach(h => {
+      const c = head.indexOf(h);
+      if (c >= 0) out[DB.OPTION_HEADERS[h]] = column(c); // 右側包裝組也有同名表頭，取最左邊那個
+    });
+  }
+  try { cache.put('opts', JSON.stringify(out), CONFIG.CACHE_SECONDS); } catch (err) { /* ignore */ }
+  return out;
+}
+
 function json_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
@@ -88,4 +237,13 @@ function checkSetup() {
   const nos = Object.keys(idx);
   Logger.log('讀到 %s 張工令單。PIN 已設定：%s', nos.length, !!PropertiesService.getScriptProperties().getProperty('PIN'));
   if (nos.length) Logger.log('第一張：%s', JSON.stringify(idx[nos[0]]));
+}
+
+/** 檢查表單這一側：建立（或找到）「五股廠生產組表單」試算表，並讀「選單」下拉選項。 */
+function checkForm() {
+  CacheService.getScriptCache().remove('opts');
+  const sh = db_();
+  Logger.log('表單試算表：%s（目前 %s 筆）', sh.getParent().getUrl(), Math.max(0, sh.getLastRow() - 1));
+  const o = options_();
+  Logger.log('下拉選項：%s', Object.keys(o).map(k => k + ' ' + o[k].length + ' 個').join('、') || '讀不到（請設定 BKE_SHEET_ID）');
 }

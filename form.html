@@ -200,6 +200,7 @@ const peopleOf = r => [1,2,3,4].map(i=>r?.["作業人員"+i]).filter(Boolean);
 // 加大型 starts empty: people drag rows into it. Capsule lines are a separate project and stay hidden.
 const SECTIONS=[{id:"std",name:"標準型粉包機 5台"},{id:"big",name:"加大型粉包機 1台"},{id:"mix",name:"混料"}];
 const WAIT="等待安排";
+const MACHINES={std:/小粉包機|混料/,big:/大粉包機|混料/,mix:/混料/};   // which machines get a block (even when empty) in each section
 const POWDER=["4三面封粉包","4粉包"];
 let collapsed=new Set(store.get("collapsed",[]));
 function defaultSection(r){
@@ -301,8 +302,10 @@ function render(){
     const rs=bySec.get(sec.id), blocks=new Map();
     for(const r of rs){const m=r.saved?.["機台"]||""; if(!blocks.has(m)) blocks.set(m,[]); blocks.get(m).push(r)}
     frag.append(headerRow("sec",sec.id,null,sec.name));
-    for(const m of [...blocks.keys()].filter(Boolean).sort((x,y)=>rank(x)-rank(y)||x.localeCompare(y))){
-      frag.append(headerRow("blk",sec.id,m,"機台："+m)); for(const r of blocks.get(m)) frag.append(rowIn(r,sec.id));
+    // every machine of this line gets a block, even when nothing is scheduled on it yet, so there is somewhere to drop a row
+    const names=new Set([...blocks.keys()].filter(Boolean)); for(const m of order) if(MACHINES[sec.id].test(m)) names.add(m);
+    for(const m of [...names].sort((x,y)=>rank(x)-rank(y)||x.localeCompare(y))){
+      frag.append(headerRow("blk",sec.id,m,"機台："+m)); for(const r of blocks.get(m)||[]) frag.append(rowIn(r,sec.id));
     }
     frag.append(headerRow("blk wait",sec.id,"",WAIT)); for(const r of blocks.get("")||[]) frag.append(rowIn(r,sec.id));
   }

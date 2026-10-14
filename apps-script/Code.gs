@@ -366,9 +366,17 @@ function importProdSheet_(dry) {
     if (seen[no]) { st.dup++; continue; }
     seen[no] = true;
     if (existing[no]) { st.existing++; continue; }
-    const people = [0, 1, 2, 3].map(i => String(vals[r][i]).trim()).filter(Boolean).slice(0, 4);
+    // 兩個人名黏在同一格（例如「小俊阿順」）時拆開；機台的「240混料」補成「240kg混料」
+    let people = [];
+    [0, 1, 2, 3].map(i => String(vals[r][i]).trim()).filter(Boolean).forEach(p => {
+      const a = optPeople.filter(n => p.indexOf(n) === 0 && optPeople.indexOf(p.slice(n.length)) >= 0)[0];
+      if (optPeople.indexOf(p) < 0 && a) people.push(a, p.slice(a.length)); else people.push(p);
+    });
+    people = people.slice(0, 4);
     people.forEach(p => { if (optPeople.indexOf(p) < 0) bump(st.unknownPeople, p); });
     let mach = waiting ? '' : String(vals[r][C.mach]).trim();
+    const fixed = mach.replace(/^(\d+)混料$/, '$1kg混料');
+    if (optMach.indexOf(mach) < 0 && optMach.indexOf(fixed) >= 0) mach = fixed;
     if (mach && optMach.indexOf(mach) < 0) bump(st.unknownMach, mach);
     const rec = { 工令單號: no, 分區: sec, 機台: mach, 預計完工日: String(vals[r][C.eta]).trim(), '天/時': String(vals[r][C.unit]).trim(), 製造日期: day(vals[r][C.made]),
       生產進度: num(vals[r][C.prog]), 完工時間: day(vals[r][C.fin]), '實際用時(時)': num(vals[r][C.hrs]), '實際用時(分)': num(vals[r][C.min]), 進度說明: String(vals[r][C.status]).trim(),

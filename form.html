@@ -64,6 +64,7 @@ td select{width:100%;min-width:84px}
 td input[type=text],td input[type=number],td input[type=date]{width:100%;min-width:84px}
 td input[type=number]{min-width:64px;width:72px}
 td input[type=checkbox]{width:18px;height:18px;min-height:0}
+td input.ro{cursor:default;accent-color:var(--go)}
 td.chk{text-align:center}
 .status{min-width:96px;font-size:12px;color:var(--muted)}
 .status.bad{color:var(--stop);font-weight:700}
@@ -114,36 +115,41 @@ const store = {get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(
 const $ = id => document.getElementById(id);
 // Column order. auto: filled from the plan sheet (not typed). Dropdown lists (opt) come from the backend because they hold staff names.
 const COLS = [
+  // sticky on the left so the order stays visible while scrolling
   {id:"no", label:"工令單號", auto:true, s:0},
   {id:"name", label:"產品名稱", auto:true, s:1},
-  {id:"qty", label:"數量", auto:true},
-  {id:"item", label:"品項", auto:true},
-  {k:"機台", t:"select", opt:"機台"},
+  // then the same order as the 五股廠(生產組) sheet: people, machine, dates, progress ...
   {k:"作業人員1", label:"作業人員 1", t:"select", opt:"作業人員"},
   {k:"作業人員2", label:"作業人員 2", t:"select", opt:"作業人員"},
   {k:"作業人員3", label:"作業人員 3", t:"select", opt:"作業人員"},
   {k:"作業人員4", label:"作業人員 4", t:"select", opt:"作業人員"},
   {id:"people", label:"人數", auto:true},
+  {k:"機台", t:"select", opt:"機台"},
   {k:"預計完工日", t:"select", opt:"預計完工日"},
   {k:"天/時", t:"select", opt:"天/時"},
-  {k:"進度說明", t:"select", opt:"進度說明"},
   {k:"製造日期", t:"date"},
   {k:"生產進度", t:"number"},
   {k:"完工時間", t:"date"},
-  {k:"實際用時(時)", label:"用時(時)", t:"number"},
-  {k:"實際用時(分)", label:"用時(分)", t:"number"},
-  {id:"arrive", label:"到料時間", auto:true},
-  {id:"pickNo", label:"領料單號/調撥單號", auto:true, mono:true},
-  {id:"picked", label:"領料", auto:true, check:true},
-  {id:"doneFlag", label:"工令完工", auto:true, check:true},
+  {k:"實際用時(時)", label:"實際用時(時)", t:"number"},
+  {k:"實際用時(分)", label:"實際用時(分)", t:"number"},
+  {k:"進度說明", t:"select", opt:"進度說明"},
+  // ... then the right half of the sheet
+  {k:"出貨點", t:"text", list:["出貨客戶","五股包裝"]},
   {id:"due", label:"交期", auto:true},
+  {id:"code", label:"產品編號", auto:true, mono:true},
+  {id:"qty", label:"數量", auto:true},
+  {id:"unit", label:"單位", auto:true},
+  {id:"item", label:"品項", auto:true},
   {k:"答交", t:"text"},
   {k:"作業時間", t:"text"},
-  {k:"出貨點", t:"text", list:["出貨客戶","五股包裝"]},
+  {id:"pickNo", label:"領料單號/調撥單號", auto:true, mono:true},
+  {id:"arrive", label:"到料時間", auto:true},
+  {id:"picked", label:"領料", auto:true, check:true},
+  {id:"doneFlag", label:"工令完工", auto:true, check:true},
+  {k:"備註", t:"text", wide:true},
+  {k:"完工資訊", t:"text"},
   {id:"parent", label:"上階工單", auto:true, mono:true},
   {id:"semi", label:"半成品完工", auto:true, check:true},
-  {id:"code", label:"產品編號", auto:true, mono:true},
-  {k:"備註", t:"text", wide:true},
   {id:"status", label:"狀態"},
 ];
 let pin = store.get("pin",""), options = {}, orders = [], planOf = new Map(), saved = new Map(), limit = 100, queue = Promise.resolve();
@@ -225,7 +231,6 @@ function makeInput(c, r){
 function buildRow(r){
   const tr=document.createElement("tr"); tr.dataset.no=r.no; if(r.saved) tr.className="saved"; if(isDone(r.plan,r.saved)) tr.classList.add("done");
   const name=r.plan?.name||r.saved?.["產品名稱"]||"", code=r.plan?.code||r.saved?.["產品編號"]||"";
-  const qty=(r.plan?.qty??r.saved?.["數量"]??"")+" "+(r.plan?.unit??r.saved?.["單位"]??"");
   for(const c of COLS){
     const td=document.createElement("td"); if(c.auto) td.classList.add("auto"); if(c.s!=null) td.classList.add("s"+c.s);
     if(c.id==="no"){td.className+=" mono";
@@ -234,11 +239,15 @@ function buildRow(r){
       td.append(grip,mk("▲","-1","上移一格"),mk("▼","1","下移一格"),document.createTextNode(" "+r.no));
       if(r.plan?.rework){const t=document.createElement("small");t.textContent=" 重工";t.style.color="#b54708";td.append(t)}}
     else if(c.id==="name"){td.textContent=name;td.title=name}
-    else if(c.id==="qty"){td.textContent=qty.trim();td.style.textAlign="right"}
+    else if(c.id==="qty"){td.textContent=r.plan?.qty??r.saved?.["數量"]??"";td.style.textAlign="right"}
+    else if(c.id==="unit") td.textContent=r.plan?.unit??r.saved?.["單位"]??"";
     else if(c.id==="item") td.textContent=r.plan?.item||"";
     else if(c.id==="code"){td.className+=" mono";td.textContent=code}
-    else if(c.id==="picked"||c.id==="doneFlag"||c.id==="semi"){td.className+=" chk";   // checkboxes in 計畫單平台: show ✔ when ticked, blank otherwise
-      td.textContent=(c.id==="picked"?r.plan?.picked:c.id==="doneFlag"?r.plan?.done:/^(TRUE|是|✔|V)$/i.test(r.plan?.semi||""))?"✔":""}
+    else if(c.check){td.className+=" chk";   // checkboxes of 計畫單平台: shown as real, read-only ticks
+      const on=c.id==="picked"?r.plan?.picked:c.id==="doneFlag"?r.plan?.done:/^(TRUE|是|✔|V)$/i.test(r.plan?.semi||"");
+      const cb=document.createElement("input"); cb.type="checkbox"; cb.checked=!!on; cb.className="ro"; cb.tabIndex=-1;
+      cb.title="來自計畫單平台（要改請到計畫單平台）"; cb.setAttribute("aria-label",c.label+(on?"：是":"：否")); cb.addEventListener("click",e=>e.preventDefault());
+      td.append(cb)}
     else if(c.auto&&c.id!=="people"&&c.id!=="status"){td.textContent=r.plan?.[c.id]||"";if(c.mono)td.className+=" mono"}
     else if(c.id==="people"){td.dataset.people="1";td.style.textAlign="center";td.textContent=peopleOf(r.saved).length||""}
     else if(c.id==="status"){td.className+=" status";setStatus(td,r.saved?"good":"",r.saved?"✓ 已存 "+r.saved["更新時間"].slice(5,16):"");

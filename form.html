@@ -6,31 +6,31 @@
 <title>工廠管理</title>
 <link rel="icon" href="icons/icon-192.png">
 <style>
-/* Desktop table for the 五股廠(生產組) sheet of BKE在途工單. Every work order of the plan sheet is a row. */
+/* Scheduling board for the 五股廠(生產組) sheet of BKE在途工單: a row per line, a lane per machine, a card per work order. */
 :root{
-  --bg:#eef1f4; --surface:#ffffff; --ink:#15202b; --muted:#5b6876; --line:#d5dce3; --auto-bg:#eaf2fb;
-  --accent:#f2c200; --go:#1d8a4c; --go-bg:#e2f3e9; --stop:#c43a2f; --warn-bg:#fff4cc; --warn-ink:#6b5200;
+  --bg:#eef1f4; --surface:#ffffff; --ink:#15202b; --muted:#5b6876; --line:#d5dce3; --soft:#eaf2fb;
+  --accent:#f2c200; --go:#1d8a4c; --go-bg:#e2f3e9; --stop:#c43a2f; --stop-bg:#fbe9e7; --warn-bg:#fff4cc; --warn-ink:#6b5200;
   --font-body:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
   --font-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --bg:#0f151b; --surface:#18212a; --ink:#e6ebf0; --muted:#97a4b2; --line:#2c3843; --auto-bg:#1b2b3b;
-  --go:#2fa866; --go-bg:#13301f; --stop:#e05547; --warn-bg:#3a3110; --warn-ink:#f3dc8a; color-scheme:dark}}
+  --bg:#0f151b; --surface:#18212a; --ink:#e6ebf0; --muted:#97a4b2; --line:#2c3843; --soft:#1b2b3b;
+  --go:#2fa866; --go-bg:#13301f; --stop:#e05547; --stop-bg:#3a1b18; --warn-bg:#3a3110; --warn-ink:#f3dc8a; color-scheme:dark}}
 *,*::before,*::after{box-sizing:border-box}
 [hidden]{display:none!important}
 html,body{margin:0;background:var(--bg);color:var(--ink)}
 body{font-family:var(--font-body);font-size:14px;line-height:1.4;padding:12px}
-.wrap{max-width:none;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.wrap{display:flex;flex-direction:column;gap:12px}
 .mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
 header{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
 h1{font-size:20px;margin:0}
 a{color:inherit}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px}
-input,select{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:4px 6px;min-height:30px}
+input,select{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:4px 6px;min-height:32px}
 input:focus-visible,select:focus-visible,.btn:focus-visible{outline:3px solid var(--accent);outline-offset:1px}
 .btn{cursor:pointer;font:inherit;font-weight:700;border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:8px;padding:6px 14px;min-height:34px}
 .btn-go{background:var(--go);border-color:var(--go);color:#fff}
-.btn-mini{font-size:12px;font-weight:600;padding:2px 8px;min-height:24px;color:var(--stop);border-color:var(--stop)}
+.btn-stop{color:var(--stop);border-color:var(--stop)}
 .row-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .msg{padding:8px 12px;border-radius:8px;font-weight:600}
 .msg.err{background:var(--warn-bg);color:var(--warn-ink)}
@@ -38,84 +38,52 @@ input:focus-visible,select:focus-visible,.btn:focus-visible{outline:3px solid va
 .tools{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 .tools input[type=search]{width:240px}
 .note{font-size:13px;color:var(--muted);margin:0}
-.legend{display:inline-block;padding:0 8px;border-radius:4px;background:var(--auto-bg);border:1px solid var(--line)}
-.tablewrap{overflow:auto;max-height:calc(100vh - 190px);border:1px solid var(--line);border-radius:8px}
-table{border-collapse:separate;border-spacing:0;font-size:13px;width:max-content;min-width:100%}
-th,td{padding:3px 6px;border-bottom:1px solid var(--line);border-right:1px solid var(--line);vertical-align:middle;white-space:nowrap;background:var(--surface)}
-th{position:sticky;top:0;z-index:2;font-size:12px;color:var(--muted);font-weight:600;text-align:left}
-th.auto{background:var(--auto-bg)}
-td.auto{background:var(--auto-bg)}
-.s0,.s1{position:sticky;z-index:1}
-th.s0,th.s1{z-index:4}
-.s0{left:0;min-width:200px;max-width:200px}
-.s1{left:200px;min-width:210px;max-width:210px;overflow:hidden;text-overflow:ellipsis}
-.grip{cursor:grab;user-select:none;padding:0 4px;font-size:16px;color:var(--muted)}
-.mv{all:unset;cursor:pointer;font-size:11px;line-height:1;padding:4px 3px;color:var(--muted);border-radius:4px}
-.mv:hover{background:var(--line);color:var(--ink)}
-.mv:focus-visible{outline:2px solid var(--accent)}
-.grip{touch-action:none}
-tr.sec td{background:#000;color:#fff;font-size:16px;font-weight:700;padding:8px 14px;cursor:pointer;border-right:0}
-tr.sec .lab{position:sticky;left:14px;display:inline-block}
-tr.sec .cnt,tr.blk .cnt{font-weight:400;opacity:.75;font-size:13px}
-tr.blk td{background:var(--bg);color:var(--ink);font-size:13px;font-weight:700;padding:4px 14px;border-right:0}
-tr.blk .lab{position:sticky;left:14px;display:inline-block}
-tr.blk.wait td{background:#c43a2f;color:#fff}
-tr.lifted{position:relative;z-index:6}
-tr.lifted td{box-shadow:0 8px 16px rgba(0,0,0,.28);border-top:1px solid var(--accent);border-bottom:1px solid var(--accent)}
-body.dragging-rows{cursor:grabbing;user-select:none}
-body.dragging-rows *{cursor:grabbing!important}
-tr.saved td.s0{box-shadow:inset 3px 0 0 var(--go)}
-tr.done td{opacity:.6}
-td select{width:100%;min-width:84px}
-td input[type=text],td input[type=number],td input[type=date]{width:100%;min-width:84px}
-td input[type=number]{min-width:64px;width:72px}
-td input[type=checkbox]{width:18px;height:18px;min-height:0}
-td input.ro{cursor:default;accent-color:var(--go)}
-td.chk{text-align:center}
-.status{min-width:96px;font-size:12px;color:var(--muted)}
-.status.bad{color:var(--stop);font-weight:700}
-.status.good{color:var(--go)}
-/* view switch */
-.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
-.seg button{all:unset;cursor:pointer;padding:6px 16px;font-weight:700;color:var(--muted)}
-.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
-.seg button:focus-visible{outline:3px solid var(--accent);outline-offset:-3px}
-/* table view, tidier: machine blocks are labels, empty ones are thin drop lines */
-tr.blk .lab{background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:1px 12px}
-tr.blk.wait .lab{background:transparent;border-color:rgba(255,255,255,.6)}
-tr.blk.empty td{padding:1px 14px;font-weight:400;color:var(--muted)}
-tr.blk.empty .lab{opacity:.7}
-/* board view: one lane per machine, a card per work order */
-#board{display:flex;flex-direction:column;gap:14px}
+
+/* board */
+#board{display:flex;flex-direction:column;gap:12px}
 .bsec{border:1px solid var(--line);border-radius:12px;background:var(--surface);overflow:hidden}
-.bsec-h{all:unset;box-sizing:border-box;width:100%;background:#000;color:#fff;font-size:16px;font-weight:700;padding:8px 14px;cursor:pointer;display:flex;gap:8px;align-items:baseline}
+.bsec-h{all:unset;box-sizing:border-box;width:100%;background:#000;color:#fff;font-size:15px;font-weight:700;padding:7px 14px;cursor:pointer;display:flex;gap:8px;align-items:baseline}
 .bsec-h:focus-visible{outline:3px solid var(--accent);outline-offset:-3px}
 .bsec-h .cnt{font-weight:400;opacity:.75;font-size:13px}
-.lanes{display:flex;gap:10px;padding:12px;overflow-x:auto;align-items:flex-start}
-.lane{flex:0 0 232px;background:var(--bg);border-radius:10px;padding:8px;display:flex;flex-direction:column;gap:6px}
-.lane.wait{background:rgba(196,58,47,.10);box-shadow:inset 0 0 0 1px rgba(196,58,47,.35)}
+.bsec-h .hint{margin-left:auto;font-weight:400;font-size:12px;opacity:.7}
+.bsec.empty .bsec-h{background:var(--bg);color:var(--muted);cursor:default}
+.bsec.over .bsec-h{outline:3px solid var(--accent);outline-offset:-3px}
+.lanes{display:flex;gap:10px;padding:10px 12px 12px;overflow-x:auto;align-items:flex-start}
+.lane{flex:0 0 220px;background:var(--bg);border-radius:10px;padding:8px;display:flex;flex-direction:column;gap:6px}
+.lane.wait{background:var(--stop-bg)}
+.lane.spare{display:none}
+.bsec.show-spare .lane.spare,body.dragging .lane.spare{display:flex}
 .lane-h{font-size:13px;font-weight:700;display:flex;justify-content:space-between;padding:2px 4px}
 .lane.wait .lane-h{color:var(--stop)}
 .lane-h .cnt{font-weight:400;color:var(--muted)}
-.cards{display:flex;flex-direction:column;gap:6px;min-height:48px;border-radius:8px}
-.cards .hint{font-size:12px;color:var(--muted);text-align:center;padding:12px 6px;border:1px dashed var(--line);border-radius:8px}
-.cards:has(.card) .hint{display:none}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:7px 9px;font-size:13px;line-height:1.45;cursor:grab;touch-action:none;user-select:none}
+.cards{display:flex;flex-direction:column;gap:6px;min-height:44px;border-radius:8px}
+.cards .gap-hint{font-size:12px;color:var(--muted);text-align:center;padding:10px 6px;border:1px dashed var(--line);border-radius:8px}
+.cards:has(.card) .gap-hint{display:none}
+.spare-btn{all:unset;flex:0 0 auto;align-self:stretch;writing-mode:vertical-rl;cursor:pointer;font-size:12px;color:var(--muted);border:1px dashed var(--line);border-radius:10px;padding:10px 6px;text-align:center}
+.spare-btn:hover{color:var(--ink);border-color:var(--muted)}
+.spare-btn:focus-visible{outline:3px solid var(--accent)}
+body.dragging .spare-btn{display:none}
+
+/* cards: only what you need at a glance; the rest is one click away */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:7px 9px;cursor:grab;touch-action:none;user-select:none;display:flex;flex-direction:column;gap:2px}
 .card:hover{border-color:var(--muted)}
 .card:focus-visible{outline:3px solid var(--accent);outline-offset:1px}
-.card .top{display:flex;justify-content:space-between;gap:6px;align-items:baseline}
-.card .no{font-family:var(--font-mono);font-weight:700;font-size:12px}
-.card .nm{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.card .meta{font-size:12px;color:var(--muted)}
-.card .pp{display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
-.card .pp span{font-size:12px;background:var(--auto-bg);border-radius:4px;padding:0 6px}
-.card .tag{font-size:11px;font-weight:700;border-radius:4px;padding:0 6px;background:var(--go-bg);color:var(--go)}
-.card .tag.rw{background:#fdead7;color:#b54708}
+.card .top{display:flex;justify-content:space-between;gap:6px;align-items:center}
+.card .no{font-family:var(--font-mono);font-size:12px;color:var(--muted)}
+.card .nm{font-weight:600;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.card .foot{display:flex;justify-content:space-between;gap:6px;align-items:center;font-size:12px;color:var(--muted)}
+.card .pp{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.card .pp span{background:var(--soft);color:var(--ink);border-radius:4px;padding:0 6px}
+.tag{font-size:11px;font-weight:700;border-radius:4px;padding:0 6px;background:var(--go-bg);color:var(--go);white-space:nowrap}
+.tag.rw{background:#fdead7;color:#b54708}
 .card.working{box-shadow:inset 3px 0 0 var(--go)}
-.card.done{opacity:.55}
+.card.done{opacity:.5}
 .card.ph{opacity:.3;border-style:dashed}
 .card.ghost{position:fixed;z-index:50;pointer-events:none;box-shadow:0 10px 24px rgba(0,0,0,.28);transform:rotate(1.5deg);margin:0}
-/* card editor */
+body.dragging{cursor:grabbing;user-select:none}
+body.dragging *{cursor:grabbing!important}
+
+/* editor */
 .editor{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.35);display:flex;justify-content:flex-end}
 .ed-box{width:min(560px,100%);height:100%;overflow:auto;background:var(--surface);padding:16px 18px;display:flex;flex-direction:column;gap:12px}
 .ed-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
@@ -123,8 +91,11 @@ tr.blk.empty .lab{opacity:.7}
 .ed-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
 .ed-grid label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted)}
 .ed-grid label input,.ed-grid label select{color:var(--ink);font-size:14px;width:100%}
-.ed-info{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px 12px;background:var(--auto-bg);border-radius:8px;padding:10px 12px;font-size:13px}
+.ed-info{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px 12px;background:var(--soft);border-radius:8px;padding:10px 12px;font-size:13px}
 .ed-info div span{display:block;font-size:11px;color:var(--muted)}
+.status{font-size:12px;color:var(--muted)}
+.status.bad{color:var(--stop);font-weight:700}
+.status.good{color:var(--go)}
 </style>
 </head>
 <body>
@@ -143,7 +114,6 @@ tr.blk.empty .lab{opacity:.7}
 
   <section class="panel" id="listPanel" hidden>
     <div class="tools">
-      <div class="seg" role="group" aria-label="畫面"><button id="vBoard" aria-pressed="true">看板</button><button id="vTable" aria-pressed="false">表格</button></div>
       <input id="q" type="search" placeholder="搜尋工令單號、品名、人員">
       <select id="machineFilter" aria-label="機台"><option value="">全部機台</option></select>
       <select id="statusFilter" aria-label="狀態">
@@ -153,16 +123,8 @@ tr.blk.empty .lab{opacity:.7}
       <button class="btn" id="reloadBtn">重新讀取</button>
       <span class="note" id="summary"></span>
     </div>
-    <p class="note" id="boardNote">每台機台一欄、每張工令單一張卡片。把卡片拖到別的機台就換機台，拖回紅色「等待安排」就清掉機台，在同一欄上下拖就是調整先後順序；拖到別的大分類（例如加大型粉包機）就換分類。點卡片可以打開那張單填其他欄位。點黑色標題可以收合。</p>
-    <p class="note" id="tableNote"><span class="legend">淺藍底</span> ＝ 自動帶出，不用填（產品、數量、到料時間、領料、工令完工、交期等都來自「計畫單平台」，那邊改了這裡就會跟著變；人數＝選了幾位作業人員）。其他欄位直接在表格裡選或填，改完會自動存檔。要調整順序，拖曳每列最左邊的 ⠿，或按 ▲ ▼。拖到別的「機台」區，那張單的機台就跟著換；拖到「等待安排」就清掉機台；拖到別的大分類（例如加大型粉包機）就換分類。點大分類的黑色標題可以收合。</p>
-    <div id="board" hidden></div>
-    <div class="tablewrap" id="tableView">
-      <table>
-        <thead><tr id="head"></tr></thead>
-        <tbody id="rows"></tbody>
-      </table>
-    </div>
-    <div class="row-actions"><button class="btn" id="moreBtn" hidden>顯示更多</button></div>
+    <p class="note">拖卡片到別的機台就換機台，拖回紅色「等待安排」就清掉機台，同一欄上下拖是排先後；拖到別的大分類標題就換分類。點卡片看完整資料、填其他欄位。</p>
+    <div id="board"></div>
   </section>
 </div>
 
@@ -171,49 +133,32 @@ tr.blk.empty .lab{opacity:.7}
 const API = window.APP_CONFIG?.sheetApi || "";
 const store = {get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
 const $ = id => document.getElementById(id);
-// Column order. auto: filled from the plan sheet (not typed). Dropdown lists (opt) come from the backend because they hold staff names.
-const COLS = [
-  // sticky on the left so the order stays visible while scrolling
-  {id:"no", label:"工令單號", auto:true, s:0},
-  {id:"name", label:"產品名稱", auto:true, s:1},
-  // then the same order as the 五股廠(生產組) sheet: people, machine, dates, progress ...
+// Hand-filled fields, in the order of the 五股廠(生產組) sheet. Dropdown lists (opt) come from the backend because they hold staff names.
+const FIELDS = [
   {k:"作業人員1", label:"作業人員 1", t:"select", opt:"作業人員"},
   {k:"作業人員2", label:"作業人員 2", t:"select", opt:"作業人員"},
   {k:"作業人員3", label:"作業人員 3", t:"select", opt:"作業人員"},
   {k:"作業人員4", label:"作業人員 4", t:"select", opt:"作業人員"},
-  {id:"people", label:"人數", auto:true},
   {k:"機台", t:"select", opt:"機台"},
   {k:"預計完工日", t:"select", opt:"預計完工日"},
   {k:"天/時", t:"select", opt:"天/時"},
   {k:"製造日期", t:"date"},
   {k:"生產進度", t:"number"},
   {k:"完工時間", t:"date"},
-  {k:"實際用時(時)", label:"實際用時(時)", t:"number"},
-  {k:"實際用時(分)", label:"實際用時(分)", t:"number"},
+  {k:"實際用時(時)", t:"number"},
+  {k:"實際用時(分)", t:"number"},
   {k:"進度說明", t:"select", opt:"進度說明"},
-  // ... then the right half of the sheet
   {k:"出貨點", t:"text", list:["出貨客戶","五股包裝"]},
-  {id:"due", label:"交期", auto:true},
-  {id:"code", label:"產品編號", auto:true, mono:true},
-  {id:"qty", label:"數量", auto:true},
-  {id:"unit", label:"單位", auto:true},
   {k:"答交", t:"text"},
   {k:"作業時間", t:"text"},
-  {id:"pickNo", label:"領料單號/調撥單號", auto:true, mono:true},
-  {id:"arrive", label:"到料時間", auto:true},
-  {id:"picked", label:"領料", auto:true, check:true},
-  {id:"doneFlag", label:"工令完工", auto:true, check:true},
-  {k:"備註", t:"text", wide:true},
+  {k:"備註", t:"text"},
   {k:"完工資訊", t:"text"},
-  {id:"parent", label:"上階工單", auto:true, mono:true},
-  {id:"semi", label:"半成品完工", auto:true, check:true},
-  {id:"status", label:"狀態"},
 ];
-let pin = store.get("pin",""), options = {}, orders = [], planOf = new Map(), saved = new Map(), limit = 400, queue = Promise.resolve();
-const timers = new Map(), pending = new Set();
-// 品項 that actually appear in the 五股廠(生產組) sheet (checked 2026-10-14 against 訂單計畫單: 289 of 777 orders; packaging items such as 盒/袋裝/5包裝 never do).
-const TRANSIT_ITEMS = ["7混料","4三面封粉包","4粉包"];   // powder first; capsule items (4膠囊, 4打排, 2換膠囊) are hidden for now
-const CAPSULE = /膠囊|打排/;                              // items and machines of the capsule line, hidden everywhere (rows already filled in stay)
+let pin = store.get("pin",""), options = {}, orders = [], planOf = new Map(), saved = new Map(), queue = Promise.resolve();
+const pending = new Set();
+// 品項 that go into the 五股廠(生產組) sheet (checked 2026-10-14). Powder first; the capsule line is a separate project and stays hidden.
+const TRANSIT_ITEMS = ["7混料","4三面封粉包","4粉包"];
+const CAPSULE = /膠囊|打排/;
 
 function say(text, cls="err"){const m=$("msg");m.className="msg "+cls;m.textContent=text;m.hidden=!text}
 const ERR = {bad_pin:"工廠密碼不正確。", not_configured:"後端還沒設定密碼。", bad_format:"工令單號格式不對。", not_found:"訂單計畫單查不到這個工令單號。", row_missing:"這筆資料已經不存在，請重新整理。", bad_request:"送出的資料有問題。"};
@@ -228,19 +173,18 @@ async function request(fn){
 const get = params => request(async()=>(await fetch(API+"?"+new URLSearchParams({pin,...params}))).json());
 // text/plain keeps this a "simple" request, so the browser needs no CORS preflight against Apps Script
 const post = body => request(async()=>(await fetch(API,{method:"POST",body:JSON.stringify({pin,...body})})).json());
-
 function showPin(){$("pinPanel").hidden=false;$("listPanel").hidden=true;$("pinInput").focus()}
 $("pinGo").onclick=()=>{const v=$("pinInput").value.trim();if(!v)return;pin=v;store.set("pin",v);$("pinInput").value="";$("pinPanel").hidden=true;say("");start()};
 $("pinInput").addEventListener("keydown",e=>{if(e.key==="Enter")$("pinGo").click()});
 
-// ---- rows ----
+// ---- rows: every order of 計畫單平台 (五股廠) plus what was filled in here ----
 const isDone = (plan,s) => !!(plan?.done || s?.["進度說明"]==="完工");   // 工令完工 ticked in 計畫單平台, or marked 完工 here
-const keyOf = new Map(), viewList = [];
+const keyOf = new Map();
 function allRows(){
   const seen=new Set(), out=[];
   for(const o of orders){if(seen.has(o.no))continue;seen.add(o.no);out.push({no:o.no,plan:o,saved:saved.get(o.no)||null})}
-  for(const [no,r] of saved) if(!seen.has(no)) out.push({no,plan:null,saved:r});   // saved earlier, order has left the plan sheet
-  // Rows that were dragged have a saved 排序 number; the others follow, newest order number first.
+  for(const [no,r] of saved) if(!seen.has(no)) out.push({no,plan:null,saved:r});   // filled in earlier, order has left the plan sheet
+  // Cards that were dragged have a saved 排序 number; the others follow, newest order number first.
   const num=r=>parseFloat(r.saved?.["排序"]);
   const plain=out.filter(r=>!Number.isFinite(num(r))).sort((a,b)=>b.no.slice(1).localeCompare(a.no.slice(1))||a.no.localeCompare(b.no));
   keyOf.clear(); plain.forEach((r,i)=>keyOf.set(r.no,1e9+i));
@@ -249,13 +193,13 @@ function allRows(){
 }
 const peopleOf = r => [1,2,3,4].map(i=>r?.["作業人員"+i]).filter(Boolean);
 
-// Big sections of the 五股廠(生產組) sheet = the line an order runs on. A product's mixing order sits next to its packing order.
-// 加大型 starts empty: people drag rows into it. Capsule lines are a separate project and stay hidden.
+// Sections follow the black bars of the original sheet = the line an order runs on; a product's mixing order sits with its packing order.
+// 加大型 starts empty: people drag cards into it.
 const SECTIONS=[{id:"std",name:"標準型粉包機 5台"},{id:"big",name:"加大型粉包機 1台"},{id:"mix",name:"混料"}];
 const WAIT="等待安排";
-const MACHINES={std:/小粉包機|混料/,big:/大粉包機|混料/,mix:/混料/};   // which machines get a block (even when empty) in each section
+const MACHINES={std:/小粉包機|混料/,big:/大粉包機|混料/,mix:/混料/};   // the machines of each line (empty ones appear while dragging)
 const POWDER=["4三面封粉包","4粉包"];
-let collapsed=new Set(store.get("collapsed",[]));
+const collapsed=new Set(store.get("collapsed",[])), showSpare=new Set();
 function defaultSection(r){
   const item=r.plan?.item||"";
   if(CAPSULE.test(item)) return "capsule";
@@ -269,12 +213,10 @@ function defaultSection(r){
 }
 const sectionOf=r=>SECTIONS.some(x=>x.id===r.saved?.["分區"])?r.saved["分區"]:defaultSection(r);
 function visibleRows(){
-  const item="__transit", q=$("q").value.trim().toLowerCase(), mc=$("machineFilter").value, st=$("statusFilter").value;
+  const q=$("q").value.trim().toLowerCase(), mc=$("machineFilter").value, st=$("statusFilter").value;
   return allRows().filter(r=>{
     const s=r.saved;
-    if(!s&&defaultSection(r)==="capsule") return false;      // capsule line: hidden for now
-    if(item==="__transit"){if(!s&&!TRANSIT_ITEMS.includes(r.plan?.item)) return false}   // rows already filled in stay visible
-    else if(item&&r.plan?.item!==item) return false;
+    if(!s&&(defaultSection(r)==="capsule"||!TRANSIT_ITEMS.includes(r.plan?.item))) return false;   // filled-in cards always stay
     if(mc&&s?.["機台"]!==mc) return false;
     if(st==="open"&&isDone(r.plan,s)) return false;
     if(st==="done"&&!isDone(r.plan,s)) return false;
@@ -285,305 +227,52 @@ function visibleRows(){
   });
 }
 
-function makeInput(c, r){
-  const k=c.k; let v=r.saved?.[k]??""; if(!v&&c.plan) v=r.plan?.[c.plan]||"";
-  let el;
-  if(c.t==="select"&&options[c.opt]?.length){
-    el=document.createElement("select"); el.append(new Option("",""));
-    for(const o of options[c.opt]) el.append(new Option(o,o));
-    if(v&&!options[c.opt].includes(v)) el.append(new Option(v,v));   // keep a saved value that left the dropdown list
-    el.value=v;
-  }else if(c.t==="check"){
-    el=document.createElement("input"); el.type="checkbox"; el.checked=v==="是";
-  }else{
-    el=document.createElement("input"); el.type=c.t==="number"?"number":c.t==="date"?"date":"text";
-    if(c.t==="number") el.step="any";
-    if(c.upper) el.style.textTransform="uppercase";
-    if(c.list){el.setAttribute("list","dl-"+k)}
-    el.value=v;
-  }
-  el.dataset.k=k; if(c.t==="check") el.setAttribute("aria-label",k);
-  return el;
-}
-function buildRow(r){
-  const tr=document.createElement("tr"); tr.dataset.no=r.no; tr.dataset.sec=sectionOf(r); if(r.saved) tr.className="saved"; if(isDone(r.plan,r.saved)) tr.classList.add("done");
-  const name=r.plan?.name||r.saved?.["產品名稱"]||"", code=r.plan?.code||r.saved?.["產品編號"]||"";
-  for(const c of COLS){
-    const td=document.createElement("td"); if(c.auto) td.classList.add("auto"); if(c.s!=null) td.classList.add("s"+c.s);
-    if(c.id==="no"){td.className+=" mono";
-      const grip=document.createElement("span");grip.className="grip";grip.dataset.grip="1";grip.textContent="⠿";grip.title="按住往上或往下拖，調整順序";
-      const mk=(t,d,title)=>{const b=document.createElement("button");b.className="mv";b.textContent=t;b.dataset.move=d;b.title=title;b.setAttribute("aria-label",title);return b};
-      td.append(grip,mk("▲","-1","上移一格"),mk("▼","1","下移一格"),document.createTextNode(" "+r.no));
-      if(r.plan?.rework){const t=document.createElement("small");t.textContent=" 重工";t.style.color="#b54708";td.append(t)}}
-    else if(c.id==="name"){td.textContent=name;td.title=name}
-    else if(c.id==="qty"){td.textContent=r.plan?.qty??r.saved?.["數量"]??"";td.style.textAlign="right"}
-    else if(c.id==="unit") td.textContent=r.plan?.unit??r.saved?.["單位"]??"";
-    else if(c.id==="item") td.textContent=r.plan?.item||"";
-    else if(c.id==="code"){td.className+=" mono";td.textContent=code}
-    else if(c.check){td.className+=" chk";   // checkboxes of 計畫單平台: shown as real, read-only ticks
-      const on=c.id==="picked"?r.plan?.picked:c.id==="doneFlag"?r.plan?.done:/^(TRUE|是|✔|V)$/i.test(r.plan?.semi||"");
-      const cb=document.createElement("input"); cb.type="checkbox"; cb.checked=!!on; cb.className="ro"; cb.tabIndex=-1;
-      cb.title="來自計畫單平台（要改請到計畫單平台）"; cb.setAttribute("aria-label",c.label+(on?"：是":"：否")); cb.addEventListener("click",e=>e.preventDefault());
-      td.append(cb)}
-    else if(c.auto&&c.id!=="people"&&c.id!=="status"){td.textContent=r.plan?.[c.id]||"";if(c.mono)td.className+=" mono"}
-    else if(c.id==="people"){td.dataset.people="1";td.style.textAlign="center";td.textContent=peopleOf(r.saved).length||""}
-    else if(c.id==="status"){td.className+=" status";setStatus(td,r.saved?"good":"",r.saved?"✓ 已存 "+r.saved["更新時間"].slice(5,16):"");
-      if(r.saved){const b=document.createElement("button");b.className="btn btn-mini";b.textContent="清除";b.title="清除這張單填過的資料（訂單計畫單不受影響）";b.dataset.clear=r.no;td.append(" ",b)}}
-    else{td.append(makeInput(c,r)); if(c.t==="check") td.classList.add("chk")}
-    tr.append(td);
-  }
-  return tr;
-}
-function setStatus(td,cls,text){td.className="status"+(cls?" "+cls:"");td.textContent=text}
-
-function headerRow(cls,sec,mach,label){
-  const tr=document.createElement("tr"); tr.className=cls; tr.dataset.sec=sec; if(mach!=null) tr.dataset.mach=mach;
-  const td=document.createElement("td"); td.colSpan=COLS.length;
-  const lab=document.createElement("span"); lab.className="lab";
-  if(cls==="sec"){const t=document.createElement("span");t.className="tog";lab.append(t," ")}
-  lab.append(label," ");const n=document.createElement("span");n.className="cnt";lab.append(n);
-  td.append(lab); tr.append(td); return tr;
-}
-const rowIn=(r,id)=>{const t=buildRow(r);t.dataset.sec=id;return t};   // a row always carries the section it is shown in
-function render(){
-  const rows=visibleRows(), body=$("rows"); body.textContent=""; viewList.length=0; viewList.push(...rows);
-  const shown=rows.slice(0,limit), bySec=new Map(SECTIONS.map(x=>[x.id,[]]));
-  for(const r of shown) (bySec.get(sectionOf(r))||bySec.get("mix")).push(r);
-  const order=options["機台"]||[], rank=m=>{const i=order.indexOf(m);return i<0?1e6:i};
-  const frag=document.createDocumentFragment();
-  for(const sec of SECTIONS){
-    const rs=bySec.get(sec.id), blocks=new Map();
-    for(const r of rs){const m=r.saved?.["機台"]||""; if(!blocks.has(m)) blocks.set(m,[]); blocks.get(m).push(r)}
-    frag.append(headerRow("sec",sec.id,null,sec.name));
-    // every machine of this line gets a block, even when nothing is scheduled on it yet, so there is somewhere to drop a row
-    const names=new Set([...blocks.keys()].filter(Boolean)); for(const m of order) if(MACHINES[sec.id].test(m)) names.add(m);
-    for(const m of [...names].sort((x,y)=>rank(x)-rank(y)||x.localeCompare(y))){
-      frag.append(headerRow("blk",sec.id,m,"機台："+m)); for(const r of blocks.get(m)||[]) frag.append(rowIn(r,sec.id));
-    }
-    frag.append(headerRow("blk wait",sec.id,"",WAIT)); for(const r of blocks.get("")||[]) frag.append(rowIn(r,sec.id));
-  }
-  body.append(frag); applyCollapsed(); refreshCounts();
-  $("summary").textContent="顯示 "+Math.min(limit,rows.length)+" / 符合 "+rows.length+" 張・計畫單平台（五股廠）共 "+orders.length+" 張・已填 "+saved.size+" 張";
-  $("moreBtn").hidden=rows.length<=limit; $("moreBtn").textContent="顯示更多（還有 "+(rows.length-limit)+" 張）";
-}
-function applyCollapsed(){
-  for(const tr of $("rows").children){
-    if(tr.classList.contains("sec")) tr.querySelector(".tog").textContent=collapsed.has(tr.dataset.sec)?"▸":"▾";
-    else tr.hidden=collapsed.has(tr.dataset.sec);
-  }
-}
-function refreshCounts(){                                   // numbers on the section and block headers
-  let sec=null, blk=null, ns=0, nb=0;
-  const flush=()=>{if(sec)sec.querySelector(".cnt").textContent="（"+ns+"）"; if(blk){blk.querySelector(".cnt").textContent=nb?"（"+nb+"）":"（空，可拖到這裡）";blk.classList.toggle("empty",!nb)}};
-  for(const tr of $("rows").children){
-    if(tr.classList.contains("sec")){flush();sec=tr;blk=null;ns=0;nb=0}
-    else if(tr.classList.contains("blk")){if(blk){blk.querySelector(".cnt").textContent=nb?"（"+nb+"）":"（空，可拖到這裡）";blk.classList.toggle("empty",!nb)}blk=tr;nb=0}
-    else {ns++;nb++}
-  }
-  flush();
-}
-function buildHead(){
-  const h=$("head"); h.textContent="";
-  for(const c of COLS){const th=document.createElement("th"); th.textContent=c.label||c.k; if(c.auto) th.classList.add("auto"); if(c.s!=null) th.classList.add("s"+c.s); h.append(th)}
-  for(const c of COLS) if(c.list&&!document.getElementById("dl-"+c.k)){const dl=document.createElement("datalist");dl.id="dl-"+c.k;for(const v of c.list)dl.append(new Option(v));document.body.append(dl)}
-}
-function buildFilters(){
-  const fill=(sel,vals,keep=1)=>{const cur=sel.value;sel.length=keep;for(const v of vals)sel.append(new Option(v,v));sel.value=cur&&[...sel.options].some(o=>o.value===cur)?cur:sel.options[0].value};
-  fill($("machineFilter"),options["機台"]||[...new Set([...saved.values()].map(r=>r["機台"]).filter(Boolean))]);
-}
-let rt=null; for(const id of ["q","machineFilter","statusFilter"]) $(id).addEventListener("input",()=>{clearTimeout(rt);limit=400;rt=setTimeout(refresh,id==="q"?250:0)});
-$("moreBtn").onclick=()=>{limit+=200;render()};
-$("reloadBtn").onclick=()=>start(true);
-
-// ---- editing: every change saves its row (rows are keyed by 工令單號) ----
-function collect(tr){
-  const row={};
-  for(const el of tr.querySelectorAll("[data-k]")) row[el.dataset.k]=el.type==="checkbox"?(el.checked?"是":""):el.value.trim();
-  if(row["領料單號/調撥單號"]) row["領料單號/調撥單號"]=row["領料單號/調撥單號"].toUpperCase();
-  return row;
-}
-function updatePeople(tr){
-  const n=[...tr.querySelectorAll('[data-k^="作業人員"]')].filter(e=>e.value).length;
-  tr.querySelector("[data-people]").textContent=n||"";
-}
-function statusCell(tr){return tr.querySelector("td.status")}
-function schedule(tr){
-  const no=tr.dataset.no; setStatus(statusCell(tr),"","…等待儲存"); clearTimeout(timers.get(no)); pending.add(no);
-  timers.set(no,setTimeout(()=>{queue=queue.then(()=>saveRow(tr)).finally(()=>pending.delete(no))},500));
-}
-async function saveRow(tr){
-  const no=tr.dataset.no, td=statusCell(tr); setStatus(td,"","儲存中…");
-  const res=await post({action:"save",row:{工令單號:no,...collect(tr)}});
-  if(!res){setStatus(td,"bad","⚠ 沒存成功");const b=document.createElement("button");b.className="btn btn-mini";b.textContent="重試";b.onclick=()=>schedule(tr);td.append(" ",b);return}
-  const before=saved.get(no)?.["機台"]||"";
-  applySaved(tr,res.row);
-  if((res.row["機台"]||"")!==before) refresh();           // the row now belongs to another machine block
-}
-function applySaved(tr,row){
-  const no=tr.dataset.no, td=statusCell(tr);
-  saved.set(no,row); tr.classList.add("saved"); tr.classList.toggle("done",isDone(planOf.get(no),row));
-  tr.querySelector("[data-people]").textContent=row["人數"]||"";
-  setStatus(td,"good","✓ 已存 "+row["更新時間"].slice(5,16));
-  const b=document.createElement("button");b.className="btn btn-mini";b.textContent="清除";b.dataset.clear=no;td.append(" ",b);
-  say(""); $("summary").textContent=$("summary").textContent.replace(/已填 \d+ 張/,"已填 "+saved.size+" 張");
-}
-$("rows").addEventListener("change",e=>{
-  const tr=e.target.closest("tr"); if(!tr||!e.target.dataset.k) return;
-  if(/^作業人員/.test(e.target.dataset.k)) updatePeople(tr);
-  schedule(tr);
-});
-$("rows").addEventListener("click",async e=>{
-  const no=e.target.dataset?.clear; if(!no) return;
-  if(!confirm("清除 "+no+" 填過的資料（機台、人員、進度等）？\n訂單計畫單那邊不受影響，清除後無法復原。")) return;
-  const res=await post({action:"remove",no}); if(!res) return;
-  saved.delete(no); const tr=e.target.closest("tr"); const r=allRows().find(x=>x.no===no);
-  if(r) tr.replaceWith(buildRow(r)); else tr.remove();
-  refresh(); say("已清除 "+no,"ok");
-});
-// ---- sections and blocks: [section bar][machine block][rows ...] ... [等待安排][rows ...] ----
-const hdrAbove=tr=>{let h=tr.previousElementSibling;while(h&&h.dataset.no)h=h.previousElementSibling;return h};
-const visPrev=tr=>{let p=tr.previousElementSibling;while(p&&p.hidden)p=p.previousElementSibling;return p};
-const visNext=tr=>{let n=tr.nextElementSibling;while(n&&n.hidden)n=n.nextElementSibling;return n};
-$("rows").addEventListener("click",e=>{                       // click a section bar to fold or unfold it
-  const bar=e.target.closest("tr.sec"); if(!bar) return;
-  const id=bar.dataset.sec; collapsed.has(id)?collapsed.delete(id):collapsed.add(id);
-  store.set("collapsed",[...collapsed]); applyCollapsed();
-});
-// After a row was dropped (or moved with an arrow): work out its block, give it a number between its neighbours,
-// and save the new section / machine together with the new position.
-function placeRow(tr){
-  let h=hdrAbove(tr);
-  if(!h||h.classList.contains("sec")){                         // never rest right under a section bar: go into its first block
-    let b=h?tr.nextElementSibling:$("rows").querySelector("tr.blk");
-    while(h&&b&&!b.classList.contains("blk")) b=b.nextElementSibling;
-    if(!b) return; b.after(tr); h=b;
-  }
-  const no=tr.dataset.no, sec=h.dataset.sec, mach=h.dataset.mach||"", oldSec=tr.dataset.sec;
-  if(collapsed.has(sec)){collapsed.delete(sec);store.set("collapsed",[...collapsed]);applyCollapsed()}
-  tr.dataset.sec=sec;
-  const prev=tr.previousElementSibling&&tr.previousElementSibling.dataset.no?tr.previousElementSibling:null;
-  const next=tr.nextElementSibling&&tr.nextElementSibling.dataset.no?tr.nextElementSibling:null;
-  const kp=prev?keyOf.get(prev.dataset.no):null, kn=next?keyOf.get(next.dataset.no):null;
-  const extra={};
-  if(sec!==oldSec) extra["分區"]=sec;
-  const sel=tr.querySelector('[data-k="機台"]'), curM=sel?sel.value:(saved.get(no)?.["機台"]||"");
-  if(mach!==curM){extra["機台"]=mach; if(sel){if(mach&&![...sel.options].some(o=>o.value===mach)) sel.append(new Option(mach,mach)); sel.value=mach}}
-  let k=keyOf.get(no);
-  if(kp!=null&&kn!=null) k=(kp+kn)/2; else if(kp!=null) k=kp+1000; else if(kn!=null) k=kn-1000;
-  k=Math.round(k*1e6)/1e6;
-  if((kp!=null&&k<=kp)||(kn!=null&&k>=kn)) return renumber(tr);   // no room left between the neighbours
-  keyOf.set(no,k); queueOrder(tr,k,extra); refreshCounts();
-}
-function queueOrder(tr,k,extra={}){
-  const no=tr.dataset.no; setStatus(statusCell(tr),"","儲存順序…"); pending.add(no);
-  queue=queue.then(async()=>{
-    const res=await post({action:"save",row:{工令單號:no,排序:String(k),...extra}});
-    if(res) applySaved(tr,res.row); else setStatus(statusCell(tr),"bad","⚠ 順序沒存成功");
-  }).finally(()=>pending.delete(no));
-}
-function renumber(tr){                                          // give the whole block fresh, evenly spaced numbers
-  const run=[]; for(let r=hdrAbove(tr).nextElementSibling; r&&r.dataset.no; r=r.nextElementSibling) run.push(r);
-  run.forEach((r,i)=>{const k=(i+1)*1000; keyOf.set(r.dataset.no,k); queueOrder(r,k,r===tr?{分區:tr.dataset.sec,機台:hdrAbove(tr).dataset.mach||""}:{})});
-}
-// Real drag: the row lifts and follows the pointer while the other rows move out of its way; letting go drops it there.
-let drag=null;
-$("rows").addEventListener("pointerdown",e=>{
-  const grip=e.target.closest?.("[data-grip]"); if(!grip||e.button>0) return;
-  e.preventDefault();
-  const tr=grip.closest("tr"), box=tr.getBoundingClientRect();
-  drag={tr,grab:e.clientY-box.top,y:e.clientY,from:tr.nextElementSibling,scroller:tr.closest(".tablewrap"),raf:0};
-  tr.classList.add("lifted"); document.body.classList.add("dragging-rows");
-  window.addEventListener("pointermove",onDragMove); window.addEventListener("pointerup",onDragEnd); window.addEventListener("pointercancel",onDragEnd);
-  followRow(); loopScroll();
-});
-function onDragMove(e){ if(drag){drag.y=e.clientY;followRow()} }
-function followRow(){
-  const tr=drag.tr, top=drag.y-drag.grab;
-  tr.style.transform="";                                  // measure where the row sits in the table
-  let rect=tr.getBoundingClientRect();
-  for(;;){                                                // swap places while the row's centre has passed a neighbour's centre
-    const mid=top+rect.height/2, prev=visPrev(tr), next=visNext(tr);
-    const pb=prev&&prev.getBoundingClientRect(), nb=next&&next.getBoundingClientRect();
-    if(prev&&mid<pb.top+pb.height/2) tr.parentNode.insertBefore(tr,prev);
-    else if(next&&mid>nb.top+nb.height/2) tr.parentNode.insertBefore(next,tr);
-    else break;
-    rect=tr.getBoundingClientRect();
-  }
-  tr.style.transform="translateY("+(top-rect.top)+"px)";
-}
-function loopScroll(){                                    // keep scrolling while the pointer is near the top or bottom edge
-  if(!drag) return;
-  const r=drag.scroller.getBoundingClientRect(), up=r.top+80, down=r.bottom-48; let dy=0;
-  if(drag.y<up) dy=-Math.ceil((up-drag.y)/6); else if(drag.y>down) dy=Math.ceil((drag.y-down)/6);
-  if(dy){drag.scroller.scrollTop+=dy;followRow()}
-  drag.raf=requestAnimationFrame(loopScroll);
-}
-function onDragEnd(){
-  if(!drag) return;
-  const {tr,from}=drag; cancelAnimationFrame(drag.raf); drag=null;
-  window.removeEventListener("pointermove",onDragMove); window.removeEventListener("pointerup",onDragEnd); window.removeEventListener("pointercancel",onDragEnd);
-  tr.style.transform=""; tr.classList.remove("lifted"); document.body.classList.remove("dragging-rows");
-  if(tr.nextElementSibling!==from) placeRow(tr);
-}
-$("rows").addEventListener("click",e=>{                      // arrows move a row one place inside its block
-  const d=Number(e.target.dataset?.move); if(!d) return;
-  const tr=e.target.closest("tr"), sib=d<0?tr.previousElementSibling:tr.nextElementSibling;
-  if(!sib||!sib.dataset.no||sib.hidden) return;
-  tr.parentNode.insertBefore(tr,d<0?sib:sib.nextSibling); placeRow(tr);
-  tr.querySelector(`[data-move="${d}"]`)?.focus();
-});
-// ---- view switch: board (default) or table; both read the same rows ----
-let view=store.get("view","board");
-function refresh(){
-  $("board").hidden=view!=="board"; $("tableView").hidden=view!=="table"; $("boardNote").hidden=view!=="board"; $("tableNote").hidden=view!=="table";
-  $("vBoard").setAttribute("aria-pressed",view==="board"); $("vTable").setAttribute("aria-pressed",view==="table");
-  if(view==="board"){renderBoard();$("moreBtn").hidden=true} else render();
-}
-$("vBoard").onclick=()=>{view="board";store.set("view",view);refresh()};
-$("vTable").onclick=()=>{view="table";store.set("view",view);refresh()};
-
-// ---- board: [section] → lanes (等待安排 first, then the line's machines) → cards ----
+// ---- board ----
 const el=(tag,cls,text)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e};
 function laneNames(secId,rs){
   const order=options["機台"]||[], rank=m=>{const i=order.indexOf(m);return i<0?1e6:i};
   const names=new Set(rs.map(r=>r.saved?.["機台"]).filter(Boolean)); for(const m of order) if(MACHINES[secId].test(m)) names.add(m);
-  return ["",...[...names].sort((x,y)=>rank(x)-rank(y)||x.localeCompare(y))];
+  return [...names].sort((x,y)=>rank(x)-rank(y)||x.localeCompare(y));
 }
 function cardOf(r){
   const s=r.saved||{}, p=r.plan||{};
   const c=el("div","card"); c.dataset.no=r.no; c.tabIndex=0; c.setAttribute("role","button");
   if(isDone(r.plan,r.saved)) c.classList.add("done"); if(s["進度說明"]==="作業中") c.classList.add("working");
-  const top=el("div","top"); top.append(el("span","no",r.no));
-  const tags=el("span"); if(p.rework) tags.append(el("span","tag rw","重工")); if(s["進度說明"]) tags.append(" ",el("span","tag",s["進度說明"])); top.append(tags);
+  const top=el("div","top"), tags=el("span");
+  if(p.rework) tags.append(el("span","tag rw","重工")); if(s["進度說明"]) tags.append(" ",el("span","tag",s["進度說明"]));
+  top.append(el("span","no",r.no),tags);
   const name=p.name||s["產品名稱"]||""; const nm=el("div","nm",name); nm.title=name;
-  const bits=[(p.qty??s["數量"]??"")+" "+(p.unit??s["單位"]??"")];
-  if(s["預計完工日"]) bits.push("預計 "+s["預計完工日"]+(s["天/時"]||""));
-  if(p.arrive) bits.push("到料 "+p.arrive);
-  if(p.picked) bits.push("已領料");
-  c.append(top,nm,el("div","meta",bits.filter(x=>x.trim()).join("・")));
-  const ppl=peopleOf(r.saved); if(ppl.length){const pp=el("div","pp");for(const n of ppl)pp.append(el("span",null,n));c.append(pp)}
+  const foot=el("div","foot"), pp=el("span","pp");
+  for(const n of peopleOf(r.saved)) pp.append(el("span",null,n));
+  foot.append(el("span",null,((p.qty??s["數量"]??"")+" "+(p.unit??s["單位"]??"")).trim()),pp);
+  c.append(top,nm,foot);
   return c;
 }
+function lane(secId,mach,rs,spare){
+  const ln=el("div","lane"+(mach?"":" wait")+(spare?" spare":"")), lh=el("div","lane-h");
+  lh.append(el("span",null,mach||WAIT),el("span","cnt",String(rs.length))); ln.append(lh);
+  const list=el("div","cards"); list.dataset.sec=secId; list.dataset.mach=mach;
+  list.append(el("div","gap-hint",mach?"放到這裡排給 "+mach:"還沒排機台的單"));
+  for(const r of rs) list.append(cardOf(r));
+  ln.append(list); return ln;
+}
 function renderBoard(){
-  const rows=visibleRows(), board=$("board"); board.textContent=""; viewList.length=0; viewList.push(...rows);
+  const rows=visibleRows(), board=$("board"); board.textContent="";
   const bySec=new Map(SECTIONS.map(x=>[x.id,[]]));
   for(const r of rows) (bySec.get(sectionOf(r))||bySec.get("mix")).push(r);
   for(const sec of SECTIONS){
-    const rs=bySec.get(sec.id), box=el("section","bsec");
-    const h=el("button","bsec-h"); h.dataset.sec=sec.id; h.setAttribute("aria-expanded",!collapsed.has(sec.id));
-    h.append(el("span",null,collapsed.has(sec.id)?"▸":"▾"),el("span",null,sec.name),el("span","cnt","（"+rs.length+"）"));
+    const rs=bySec.get(sec.id), open=rs.length&&!collapsed.has(sec.id);
+    const box=el("section","bsec"+(rs.length?"":" empty")+(showSpare.has(sec.id)?" show-spare":"")); box.dataset.sec=sec.id;
+    const h=el("button","bsec-h"); h.dataset.sec=sec.id; h.setAttribute("aria-expanded",open);
+    h.append(el("span",null,rs.length?(open?"▾":"▸"):"・"),el("span",null,sec.name),el("span","cnt","（"+rs.length+"）"));
+    if(!rs.length) h.append(el("span","hint","目前沒有單，把卡片拖到這條就會移進這一區"));
     box.append(h);
-    if(!collapsed.has(sec.id)){
+    if(open){
       const lanes=el("div","lanes");
-      for(const m of laneNames(sec.id,rs)){
-        const mine=rs.filter(r=>(r.saved?.["機台"]||"")===m);
-        const lane=el("div","lane"+(m?"":" wait")), lh=el("div","lane-h");
-        lh.append(el("span",null,m||WAIT),el("span","cnt",String(mine.length))); lane.append(lh);
-        const list=el("div","cards"); list.dataset.sec=sec.id; list.dataset.mach=m;
-        list.append(el("div","hint",m?"拖到這裡排給 "+m:"還沒排機台的單"));
-        for(const r of mine) list.append(cardOf(r));
-        lane.append(list); lanes.append(lane);
-      }
+      lanes.append(lane(sec.id,"",rs.filter(r=>!r.saved?.["機台"])));
+      let spare=0;
+      for(const m of laneNames(sec.id,rs)){ const mine=rs.filter(r=>r.saved?.["機台"]===m); if(!mine.length) spare++; lanes.append(lane(sec.id,m,mine,!mine.length)) }
+      if(spare){const b=el("button","spare-btn",showSpare.has(sec.id)?"收起空的機台":"＋ 顯示空的機台（"+spare+"）"); b.dataset.spare=sec.id; lanes.append(b)}
       box.append(lanes);
     }
     board.append(box);
@@ -591,12 +280,20 @@ function renderBoard(){
   $("summary").textContent="符合 "+rows.length+" 張・計畫單平台（五股廠）共 "+orders.length+" 張・已填 "+saved.size+" 張";
 }
 $("board").addEventListener("click",e=>{
-  const h=e.target.closest(".bsec-h"); if(!h) return;
+  const sp=e.target.closest("[data-spare]"); if(sp){const id=sp.dataset.spare; showSpare.has(id)?showSpare.delete(id):showSpare.add(id); renderBoard(); return}
+  const h=e.target.closest(".bsec-h"); if(!h||h.closest(".bsec").classList.contains("empty")) return;
   const id=h.dataset.sec; collapsed.has(id)?collapsed.delete(id):collapsed.add(id); store.set("collapsed",[...collapsed]); renderBoard();
 });
 $("board").addEventListener("keydown",e=>{const c=e.target.closest?.(".card"); if(c&&(e.key==="Enter"||e.key===" ")){e.preventDefault();openEditor(c.dataset.no)}});
+function buildFilters(){
+  const sel=$("machineFilter"), cur=sel.value; sel.length=1;
+  for(const v of options["機台"]||[...new Set([...saved.values()].map(r=>r["機台"]).filter(Boolean))]) sel.append(new Option(v,v));
+  sel.value=[...sel.options].some(o=>o.value===cur)?cur:"";
+}
+let rt=null; for(const id of ["q","machineFilter","statusFilter"]) $(id).addEventListener("input",()=>{clearTimeout(rt);rt=setTimeout(renderBoard,id==="q"?250:0)});
+$("reloadBtn").onclick=()=>start(true);
 
-// Save a few fields of one work order (other fields stay as they are on the server).
+// Save a few fields of one work order (the others stay as they are on the server).
 function saveFields(no,fields){
   pending.add(no);
   const p=queue.then(()=>post({action:"save",row:{工令單號:no,...fields}}));
@@ -604,12 +301,12 @@ function saveFields(no,fields){
   return p.then(res=>{if(res) saved.set(no,res.row); return res}).finally(()=>pending.delete(no));
 }
 
-// Card drag: press and move to pick a card up (a plain click opens it). The card follows the pointer and a
-// dashed gap shows where it will land; lanes and the page scroll when the pointer nears an edge.
+// ---- drag: press and move to pick a card up (a plain click opens it). The card follows the pointer, a dashed gap shows where it
+// lands, empty machine lanes appear, and lanes / the page scroll when the pointer nears an edge. A section title is a drop target too.
 let cd=null;
 $("board").addEventListener("pointerdown",e=>{
   const c=e.target.closest(".card"); if(!c||e.button>0) return;
-  cd={card:c,sx:e.clientX,sy:e.clientY,x:e.clientX,y:e.clientY,on:false,parent:c.parentNode,next:c.nextElementSibling,raf:0};
+  cd={card:c,sx:e.clientX,sy:e.clientY,x:e.clientX,y:e.clientY,on:false,parent:c.parentNode,next:c.nextElementSibling,raf:0,overSec:null};
   window.addEventListener("pointermove",cardMove); window.addEventListener("pointerup",cardUp); window.addEventListener("pointercancel",cardUp);
 });
 function cardMove(e){
@@ -617,12 +314,17 @@ function cardMove(e){
   if(!cd.on){ if(Math.hypot(cd.x-cd.sx,cd.y-cd.sy)<6) return;
     const b=cd.card.getBoundingClientRect(); cd.ox=cd.sx-b.left; cd.oy=cd.sy-b.top;
     cd.ghost=cd.card.cloneNode(true); cd.ghost.classList.add("ghost"); cd.ghost.style.width=b.width+"px"; document.body.append(cd.ghost);
-    cd.card.classList.add("ph"); document.body.classList.add("dragging-rows"); cd.on=true; edgeScroll();
+    cd.card.classList.add("ph"); document.body.classList.add("dragging"); cd.on=true; edgeScroll();
   }
   e.preventDefault(); cd.ghost.style.left=(cd.x-cd.ox)+"px"; cd.ghost.style.top=(cd.y-cd.oy)+"px"; placeGap();
 }
 function placeGap(){
-  const under=document.elementFromPoint(cd.x,cd.y); const list=under?.closest(".cards")||under?.closest(".lane")?.querySelector(".cards"); if(!list) return;
+  const under=document.elementFromPoint(cd.x,cd.y);
+  const head=under?.closest(".bsec-h"), sec=head?.closest(".bsec");
+  for(const b of document.querySelectorAll(".bsec.over")) if(b!==sec) b.classList.remove("over");
+  if(head&&(sec.classList.contains("empty")||collapsed.has(sec.dataset.sec))){sec.classList.add("over");cd.overSec=sec.dataset.sec;return}
+  cd.overSec=null;
+  const list=under?.closest(".cards")||under?.closest(".lane")?.querySelector(".cards"); if(!list) return;
   let before=null; for(const c of list.querySelectorAll(".card:not(.ph)")){const b=c.getBoundingClientRect(); if(cd.y<b.top+b.height/2){before=c;break}}
   if(before){if(cd.card.nextElementSibling!==before) list.insertBefore(cd.card,before)} else if(list.lastElementChild!==cd.card) list.append(cd.card);
 }
@@ -637,9 +339,18 @@ function cardUp(){
   const d=cd; cd=null; if(!d) return;
   window.removeEventListener("pointermove",cardMove); window.removeEventListener("pointerup",cardUp); window.removeEventListener("pointercancel",cardUp);
   if(!d.on){openEditor(d.card.dataset.no);return}
-  cancelAnimationFrame(d.raf); d.ghost.remove(); d.card.classList.remove("ph"); document.body.classList.remove("dragging-rows");
-  if(d.card.parentNode===d.parent&&d.card.nextElementSibling===d.next) return;
+  cancelAnimationFrame(d.raf); d.ghost.remove(); d.card.classList.remove("ph"); document.body.classList.remove("dragging");
+  for(const b of document.querySelectorAll(".bsec.over")) b.classList.remove("over");
+  if(d.overSec) return moveToSection(d.card.dataset.no,d.overSec);
+  if(d.card.parentNode===d.parent&&d.card.nextElementSibling===d.next){renderBoard();return}
   dropCard(d.card);
+}
+async function moveToSection(no,sec){                        // dropped on a section title: into that section's 等待安排
+  const r=allRows().find(x=>x.no===no);
+  if(r&&sectionOf(r)===sec&&!r.saved?.["機台"]){renderBoard();return}
+  const res=await saveFields(no,{分區:sec,機台:""});
+  if(!res) say("沒存成功，請重新讀取後再試。");
+  collapsed.delete(sec); store.set("collapsed",[...collapsed]); renderBoard();
 }
 async function dropCard(c){
   const list=c.parentNode, sec=list.dataset.sec, mach=list.dataset.mach||"", no=c.dataset.no, r=allRows().find(x=>x.no===no);
@@ -648,13 +359,12 @@ async function dropCard(c){
   let k=keyOf.get(no);
   if(kp!=null&&kn!=null) k=(kp+kn)/2; else if(kp!=null) k=kp+1000; else if(kn!=null) k=kn-1000;
   k=Math.round(k*1e6)/1e6;
-  const fields={};
   if((kp!=null&&k<=kp)||(kn!=null&&k>=kn)){                 // no room between the neighbours: renumber this lane
     const cards=[...list.querySelectorAll(".card")];
     for(let i=0;i<cards.length;i++){const n=cards[i].dataset.no,v=(i+1)*1000; keyOf.set(n,v); if(n!==no) saveFields(n,{排序:String(v)})}
     k=keyOf.get(no);
   }
-  fields["排序"]=String(k);
+  const fields={排序:String(k)};
   if(r&&sectionOf(r)!==sec) fields["分區"]=sec;
   if((r?.saved?.["機台"]||"")!==mach) fields["機台"]=mach;
   keyOf.set(no,k);
@@ -663,7 +373,26 @@ async function dropCard(c){
   renderBoard();
 }
 
-// ---- card editor: every hand-filled field of one work order; saves itself like the table ----
+// ---- card editor: all hand-filled fields of one work order, saved as you change them ----
+function makeInput(c, r){
+  const k=c.k, v=r.saved?.[k]??""; let e;
+  if(c.t==="select"&&options[c.opt]?.length){
+    e=document.createElement("select"); e.append(new Option("",""));
+    for(const o of options[c.opt]) e.append(new Option(o,o));
+    if(v&&!options[c.opt].includes(v)) e.append(new Option(v,v));   // keep a saved value that left the dropdown list
+    e.value=v;
+  }else{
+    e=document.createElement("input"); e.type=c.t==="number"?"number":c.t==="date"?"date":"text";
+    if(c.t==="number") e.step="any";
+    if(c.list) e.setAttribute("list","dl-"+k);
+    e.value=v;
+  }
+  e.dataset.k=k; return e;
+}
+function collect(box){
+  const row={}; for(const e of box.querySelectorAll("[data-k]")) row[e.dataset.k]=e.value.trim(); return row;
+}
+for(const c of FIELDS) if(c.list){const dl=el("datalist");dl.id="dl-"+c.k;for(const v of c.list)dl.append(new Option(v));document.body.append(dl)}
 function openEditor(no){
   const r=allRows().find(x=>x.no===no); if(!r) return;
   const p=r.plan||{}, s=r.saved||{};
@@ -675,11 +404,14 @@ function openEditor(no){
   item("數量",(p.qty??s["數量"]??"")+" "+(p.unit??s["單位"]??"")); item("產品編號",p.code||s["產品編號"]); item("交期",p.due);
   item("到料時間",p.arrive); item("領料單號",p.pickNo); item("領料",p.picked?"✔ 已領料":"未領料"); item("工令完工",p.done?"✔ 完工":"未完工");
   if(p.parent) item("上階工單",p.parent); item("半成品完工",/^(TRUE|是)$/i.test(p.semi||"")?"✔":"");
-  box.append(info);
+  box.append(el("div","note","以下由計畫單平台帶出，要改請到計畫單平台"),info);
   const grid=el("div","ed-grid");
-  for(const c of COLS){ if(!c.k) continue; const lab=el("label"); lab.append(c.label||c.k, makeInput(c,r)); grid.append(lab) }
-  const status=el("div","status"); box.append(grid,status);
-  wrap.append(box); document.body.append(wrap);
+  for(const c of FIELDS){const lab=el("label"); lab.append(c.label||c.k,makeInput(c,r)); grid.append(lab)}
+  const status=el("div","status"), actions=el("div","row-actions");
+  if(r.saved){const clr=el("button","btn btn-stop","清除這張單填過的資料"); actions.append(clr);
+    clr.onclick=async()=>{ if(!confirm("清除 "+no+" 填過的資料（機台、人員、進度等）？\n計畫單平台那邊不受影響，清除後無法復原。")) return;
+      const res=await post({action:"remove",no}); if(!res) return; saved.delete(no); done(); say("已清除 "+no,"ok") }}
+  box.append(grid,status,actions); wrap.append(box); document.body.append(wrap);
   grid.querySelector("select,input")?.focus();
   let t=null;
   grid.addEventListener("change",()=>{
@@ -687,7 +419,7 @@ function openEditor(no){
     t=setTimeout(async()=>{status.textContent="儲存中…"; const res=await saveFields(no,collect(grid));
       if(res){status.className="status good"; status.textContent="✓ 已存 "+res.row["更新時間"].slice(5,16)} else {status.className="status bad"; status.textContent="⚠ 沒存成功"}},400);
   });
-  const done=()=>{wrap.remove(); document.removeEventListener("keydown",esc); refresh()};
+  const done=()=>{wrap.remove(); document.removeEventListener("keydown",esc); renderBoard()};
   const esc=e=>{if(e.key==="Escape") done()};
   close.onclick=done; wrap.addEventListener("click",e=>{if(e.target===wrap) done()}); document.addEventListener("keydown",esc);
 }
@@ -699,9 +431,10 @@ async function start(fresh){
   say(fresh?"重新讀取計畫單平台中…（要等十幾秒）":"讀取計畫單平台中…（第一次可能要幾秒）","ok");
   const [o,b]=await Promise.all([get({action:"options"}),get({action:"board",...(fresh?{fresh:"1"}:{})})]);
   if(!o||!b) return;
-  say(""); options=o.options||{}; if(options["機台"]) options["機台"]=options["機台"].filter(m=>!CAPSULE.test(m)); orders=b.orders||[]; planOf=new Map(orders.map(o=>[o.no,o])); saved=new Map((b.rows||[]).map(r=>[r["工令單號"],r]));
+  say(""); options=o.options||{}; if(options["機台"]) options["機台"]=options["機台"].filter(m=>!CAPSULE.test(m));
+  orders=b.orders||[]; planOf=new Map(orders.map(x=>[x.no,x])); saved=new Map((b.rows||[]).map(r=>[r["工令單號"],r]));
   if(!Object.keys(options).length) say("下拉選項讀不到：請在 Apps Script 指令碼屬性加上 BKE_SHEET_ID。目前下拉欄位先用手打。");
-  buildHead(); buildFilters(); $("listPanel").hidden=false; refresh();
+  buildFilters(); $("listPanel").hidden=false; renderBoard();
 }
 start();
 if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});

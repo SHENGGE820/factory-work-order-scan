@@ -138,7 +138,7 @@ const DB = {
   FIELDS: ['工令單號', '產品編號', '產品名稱', '數量', '單位', '出貨點', '交期',
     '作業人員1', '作業人員2', '作業人員3', '作業人員4', '人數', '機台', '預計完工日', '天/時',
     '製造日期', '生產進度', '完工時間', '實際用時(時)', '實際用時(分)', '進度說明',
-    '答交', '作業時間', '領料單號/調撥單號', '到料時間', '領料', '工令完工', '備註'],
+    '答交', '作業時間', '領料單號/調撥單號', '到料時間', '領料', '工令完工', '備註', '排序'],
   FROM_ORDER: { '產品編號': 'code', '產品名稱': 'name', '數量': 'qty', '單位': 'unit' }, // 一律以訂單計畫單為準
   // 「選單」分頁表頭 → 下拉選項名稱；第一欄（表頭是 0）是作業人員。
   OPTION_HEADERS: { '人數': '人數', '生產機台': '機台', '預計完工日': '預計完工日', '天/時': '天/時', '進度說明': '進度說明' },
@@ -150,20 +150,36 @@ const DB_HEAD = ['id', '建立時間', '更新時間'].concat(DB.FIELDS);
 function db_() {
   const props = PropertiesService.getScriptProperties();
   const id = props.getProperty('DB_ID');
-  if (id) return SpreadsheetApp.openById(id).getSheetByName(DB.SHEET);
-  const ss = SpreadsheetApp.create(DB.NAME);
-  props.setProperty('DB_ID', ss.getId());
-  const sh = ss.getSheets()[0];
-  sh.setName(DB.SHEET);
-  sh.getRange(1, 1, sh.getMaxRows(), DB_HEAD.length).setNumberFormat('@'); // 全部當文字，編號不會被改成數字
-  sh.getRange(1, 1, 1, DB_HEAD.length).setValues([DB_HEAD]).setFontWeight('bold');
-  sh.setFrozenRows(1);
+  let sh;
+  if (id) {
+    const ss = SpreadsheetApp.openById(id);
+    sh = ss.getSheetByName(DB.SHEET) || ss.getSheets()[0];
+    if (sh.getName() !== DB.SHEET) sh.setName(DB.SHEET);
+  } else {
+    const ss = SpreadsheetApp.create(DB.NAME);
+    props.setProperty('DB_ID', ss.getId());
+    sh = ss.getSheets()[0];
+    sh.setName(DB.SHEET);
+  }
+  ensureDb_(sh);
   return sh;
+}
+
+// 新試算表只有 26 欄，這裡要的欄數更多，所以先補欄；表頭不一致（例如新增了欄位）也一併補齊。
+function ensureDb_(sh) {
+  const need = DB_HEAD.length;
+  if (sh.getMaxColumns() < need) sh.insertColumnsAfter(sh.getMaxColumns(), need - sh.getMaxColumns());
+  const have = sh.getRange(1, 1, 1, need).getValues()[0].map(String);
+  if (have.join('|') !== DB_HEAD.join('|')) {
+    sh.getRange(1, 1, sh.getMaxRows(), need).setNumberFormat('@'); // 全部當文字，編號不會被改成數字
+    sh.getRange(1, 1, 1, need).setValues([DB_HEAD]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+  }
 }
 
 function rowToObj_(r) {
   const o = {};
-  DB_HEAD.forEach((h, i) => { o[h] = r[i]; });
+  DB_HEAD.forEach((h, i) => { o[h] = r[i] == null ? '' : r[i]; });
   return o;
 }
 
@@ -195,7 +211,7 @@ function save_(row) {
       if (h === '工令單號') return no;
       if (order && DB.FROM_ORDER[h]) return String(order[DB.FROM_ORDER[h]] || '');
       if (Object.prototype.hasOwnProperty.call(row, h)) return String(row[h] == null ? '' : row[h]).slice(0, 500);
-      return old ? old[i] : '';
+      return old && old[i] != null ? old[i] : '';
     });
     // 人數＝選了幾位作業人員
     const people = [1, 2, 3, 4].filter(n => String(out[DB_HEAD.indexOf('作業人員' + n)] || '').trim()).length;

@@ -4,8 +4,11 @@ import assert from 'assert';
 const code = fs.readFileSync(new URL('../apps-script/Code.gs', import.meta.url), 'utf8');
 
 class Sheet {
-  constructor(name, rows = []) { this.name = name; this.rows = rows.map(r => [...r]); this.max = Math.max(rows.length, 20); }
+  constructor(name, rows = []) { this.name = name; this.rows = rows.map(r => [...r]); this.max = Math.max(rows.length, 20); this.cols = 26; } // a new Google sheet has 26 columns
   getMaxRows() { return this.max; }
+  getMaxColumns() { return this.cols; }
+  insertColumnsAfter(_, n) { this.cols += n; }
+  getName() { return this.name; }
   getLastRow() { return this.rows.length; }
   getDataRange() { return { getDisplayValues: () => this.rows.map(r => r.map(v => String(v ?? ''))) }; }
   setName(n) { this.name = n; }
@@ -15,8 +18,9 @@ class Sheet {
   getParent() { return { getUrl: () => 'https://docs.google.com/spreadsheets/d/db' }; }
   getRange(r, c, nr = 1, nc = 1) {
     const sh = this;
-    if (r + nr - 1 > this.max) throw new Error('outside the sheet');
+    if (r + nr - 1 > this.max || c + nc - 1 > this.cols) throw new Error('outside the sheet');
     return {
+      getValues() { return Array.from({ length: nr }, (_, i) => Array.from({ length: nc }, (_, j) => sh.rows[r - 1 + i]?.[c - 1 + j] ?? '')); },
       setNumberFormat() { return this; },
       setFontWeight() { return this; },
       setValues(vals) {
@@ -121,6 +125,12 @@ assert.equal(r.row['進度說明'], '作業中');
 r = post({ action: 'save', row: { 工令單號: 'V1150831005', 作業人員1: '' } });
 assert.equal(r.row['人數'], '');
 
+// the sort order is just another saved field and only touches that one row
+r = post({ action: 'save', row: { 工令單號: 'V1150831005', 排序: '1500.5' } });
+assert.equal(r.row['排序'], '1500.5');
+assert.equal(r.row['機台'], '小粉包機-1'); // untouched fields stay
+assert.ok(dbBook.getSheets()[0].cols >= 32, 'columns are added when the grid is too small');
+
 // errors
 assert.equal(post({ action: 'save', row: { 工令單號: 'V1150831999' } }).error, 'not_found');
 assert.equal(post({ action: 'save', row: { 工令單號: 'H1150831005' } }).error, 'not_found'); // customer order numbers are not work orders
@@ -143,6 +153,16 @@ sheets.plan.rows.splice(3, 1); cache.clear();
 assert.equal(post({ action: 'save', row: { 工令單號: 'V1150831006', 備註: '單已移走' } }).ok, true);
 assert.equal(post({ action: 'save', row: { 工令單號: 'V1150831006', 備註: 'x' } }).row['備註'], 'x');
 assert.equal(creates, 1);
+
+// a database made by an older version (shorter header, fewer columns) is upgraded in place
+const old = dbBook.getSheets()[0];
+const oldHead = old.rows[0].slice(0, 30);
+old.rows = [oldHead, ...old.rows.slice(1).map(r => r.slice(0, 30))];
+old.cols = 30;
+const upgraded = get({ action: 'list' }).rows;
+assert.equal(old.rows[0].length >= 32 && old.rows[0][31] === '排序', true);
+assert.deepEqual(upgraded.map(x => x['工令單號']), ['V1150831006']);
+assert.equal(upgraded[0]['排序'], '');
 
 // the plan index is cached in chunks, so a big sheet still fits and the second call skips the sheet
 cache.clear();

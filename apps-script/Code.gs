@@ -324,6 +324,86 @@ function options_() {
   return out;
 }
 
+// ---- 一次性匯入：把「五股廠(生產組)」現有的填寫內容帶進表格 ----
+// 只帶「目前表格裡有的單」（計畫單平台的五股廠單），而且只帶標準型粉包機／加大型粉包機／混料三區（膠囊先不帶）。
+// 已經填過的單不會被蓋掉。dry=true 只統計不寫入。在編輯器裡執行（見 CLAUDE.md），不會對外開放。
+function importProdSheet_(dry) {
+  const props = PropertiesService.getScriptProperties();
+  const bke = SpreadsheetApp.openById(props.getProperty('BKE_SHEET_ID'));
+  const sh = bke.getSheetByName('五股廠(生產組)');
+  const last = sh.getLastRow(), w = Math.min(sh.getLastColumn(), 40);
+  const vals = sh.getRange(1, 1, last, w).getDisplayValues();
+  const bg = sh.getRange(1, 1, last, 1).getBackgrounds();
+  const head = vals[0].map(h => String(h).replace(/\s/g, ''));
+  const col = re => head.findIndex(h => re.test(h));
+  const C = { no: head.indexOf('工令單號/銷貨單號'), mach: col(/^機台/), eta: col(/^預計完工日/), unit: col(/^天\/時/), made: col(/^製造日期/), prog: col(/^生產進度/),
+    fin: col(/^完工時間/), hrs: col(/^實際用時.*giờ/), min: col(/^實際用時.*phút/), status: col(/^進度說明/), ship: head.indexOf('出貨點'),
+    ans: head.indexOf('答交'), work: head.indexOf('作業時間'), note: head.indexOf('備註'), info: head.indexOf('完工資訊') };
+  const idx = index_(), board = {};
+  platform_(idx).forEach(o => { board[o.no] = o; });
+  const existing = {}; list_().forEach(r => { existing[r['工令單號']] = true; });
+  const day = v => { const m = String(v).match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/); return m ? m[1] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[3]).slice(-2) : String(v).trim(); };
+  const num = v => String(v).replace(/,/g, '').trim();
+  const optPeople = options_()['作業人員'] || [], optMach = options_()['機台'] || [];
+  const now = Utilities.formatDate(new Date(), DB.TZ, 'yyyy-MM-dd HH:mm:ss');
+  const SECTION = { std: /標準型/, big: /加大型/, mix: /^混料$/, cap: /膠囊/ };
+  let sec = 'cap', waiting = false;
+  const st = { sheetRows: {}, inBoard: {}, imported: {}, existing: 0, dup: 0, done: 0, waiting: 0, unknownPeople: {}, unknownMach: {}, notInBoard: 0 };
+  const bump = (o, k) => { o[k] = (o[k] || 0) + 1; };
+  const seen = {}, out = [], sample = [];
+  for (let r = 1; r < last; r++) {
+    const text = vals[r].map(x => String(x).trim()).filter(Boolean);
+    if (String(bg[r][0]).toLowerCase() === '#000000') {
+      const t = text.join(' '); sec = Object.keys(SECTION).find(k => SECTION[k].test(t)) || 'cap'; waiting = false; continue;
+    }
+    if (vals[r].some(x => String(x).trim() === '等待安排')) { waiting = true; continue; }
+    const no = (String(vals[r][C.no]).toUpperCase().match(/[A-Z]\d{10}/) || [])[0];
+    if (!no) continue;
+    bump(st.sheetRows, sec);
+    if (sec === 'cap') continue;
+    if (!board[no]) { st.notInBoard++; continue; }
+    bump(st.inBoard, sec);
+    if (seen[no]) { st.dup++; continue; }
+    seen[no] = true;
+    if (existing[no]) { st.existing++; continue; }
+    const people = [0, 1, 2, 3].map(i => String(vals[r][i]).trim()).filter(Boolean).slice(0, 4);
+    people.forEach(p => { if (optPeople.indexOf(p) < 0) bump(st.unknownPeople, p); });
+    let mach = waiting ? '' : String(vals[r][C.mach]).trim();
+    if (mach && optMach.indexOf(mach) < 0) bump(st.unknownMach, mach);
+    const rec = { 工令單號: no, 分區: sec, 機台: mach, 預計完工日: String(vals[r][C.eta]).trim(), '天/時': String(vals[r][C.unit]).trim(), 製造日期: day(vals[r][C.made]),
+      生產進度: num(vals[r][C.prog]), 完工時間: day(vals[r][C.fin]), '實際用時(時)': num(vals[r][C.hrs]), '實際用時(分)': num(vals[r][C.min]), 進度說明: String(vals[r][C.status]).trim(),
+      出貨點: String(vals[r][C.ship]).trim(), 答交: String(vals[r][C.ans]).trim(), 作業時間: String(vals[r][C.work]).trim(), 備註: String(vals[r][C.note]).trim(), 完工資訊: String(vals[r][C.info]).trim(),
+      排序: String(r + 1), 人數: people.length ? String(people.length) : '' };
+    people.forEach((p, i) => { rec['作業人員' + (i + 1)] = p; });
+    if (board[no].done || rec['進度說明'] === '完工') st.done++;
+    if (waiting) st.waiting++;
+    bump(st.imported, sec);
+    out.push(rec);
+    if (sample.length < 3) sample.push(JSON.stringify(rec));
+  }
+  Logger.log('@@sheet rows per section ' + JSON.stringify(st.sheetRows) + ' | not in board ' + st.notInBoard);
+  Logger.log('@@in board ' + JSON.stringify(st.inBoard) + ' | to import ' + JSON.stringify(st.imported) + ' | dup ' + st.dup + ' | already saved ' + st.existing + ' | done ' + st.done + ' | waiting ' + st.waiting);
+  Logger.log('@@people not in dropdown ' + JSON.stringify(st.unknownPeople) + ' | machines not in dropdown ' + JSON.stringify(st.unknownMach));
+  sample.forEach(s => Logger.log('@@sample ' + s.slice(0, 300)));
+  if (dry || !out.length) return out.length;
+  const lock = LockService.getScriptLock(); lock.waitLock(30000);
+  try {
+    const db = db_(), n = db.getLastRow();
+    const rows = out.map(rec => DB_HEAD.map(h => {
+      if (h === 'id') return Utilities.getUuid();
+      if (h === '建立時間' || h === '更新時間') return now;
+      const o = idx[rec['工令單號']];
+      if (o && DB.FROM_ORDER[h]) return String(o[DB.FROM_ORDER[h]] || '');
+      return rec[h] == null ? '' : String(rec[h]);
+    }));
+    if (n + rows.length > db.getMaxRows()) db.insertRowsAfter(db.getMaxRows(), n + rows.length - db.getMaxRows() + 50);
+    const range = db.getRange(n + 1, 1, rows.length, DB_HEAD.length);
+    range.setNumberFormat('@'); range.setValues(rows);
+  } finally { lock.releaseLock(); }
+  Logger.log('@@imported ' + out.length + ' rows');
+  return out.length;
+}
+
 function json_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }

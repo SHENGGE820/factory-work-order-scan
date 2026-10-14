@@ -53,9 +53,11 @@ th.s0,th.s1{z-index:4}
 .mv{all:unset;cursor:pointer;font-size:11px;line-height:1;padding:4px 3px;color:var(--muted);border-radius:4px}
 .mv:hover{background:var(--line);color:var(--ink)}
 .mv:focus-visible{outline:2px solid var(--accent)}
-tr.dragging td{opacity:.35}
-tr.drop-before td{box-shadow:inset 0 3px 0 var(--accent)}
-tr.drop-after td{box-shadow:inset 0 -3px 0 var(--accent)}
+.grip{touch-action:none}
+tr.lifted{position:relative;z-index:6}
+tr.lifted td{box-shadow:0 8px 16px rgba(0,0,0,.28);border-top:1px solid var(--accent);border-bottom:1px solid var(--accent)}
+body.dragging-rows{cursor:grabbing;user-select:none}
+body.dragging-rows *{cursor:grabbing!important}
 tr.saved td.s0{box-shadow:inset 3px 0 0 var(--go)}
 tr.done td{opacity:.6}
 td select{width:100%;min-width:84px}
@@ -94,7 +96,7 @@ td.chk{text-align:center}
       <button class="btn" id="reloadBtn">重新讀取</button>
       <span class="note" id="summary"></span>
     </div>
-    <p class="note"><span class="legend">淺藍底</span> ＝ 自動帶出，不用填（產品、數量等來自訂單計畫單；人數＝選了幾位作業人員）。其他欄位直接在表格裡選或填，改完會自動存檔。要調整順序，拖曳每列最左邊的 ⠿，或按 ▲ ▼，順序會存起來。</p>
+    <p class="note"><span class="legend">淺藍底</span> ＝ 自動帶出，不用填（產品、數量、到料時間、領料、工令完工、交期等都來自「計畫單平台」，那邊改了這裡就會跟著變；人數＝選了幾位作業人員）。其他欄位直接在表格裡選或填，改完會自動存檔。要調整順序，拖曳每列最左邊的 ⠿，或按 ▲ ▼，順序會存起來。</p>
     <div class="tablewrap">
       <table>
         <thead><tr id="head"></tr></thead>
@@ -130,19 +132,21 @@ const COLS = [
   {k:"完工時間", t:"date"},
   {k:"實際用時(時)", label:"用時(時)", t:"number"},
   {k:"實際用時(分)", label:"用時(分)", t:"number"},
-  {k:"到料時間", t:"text", plan:"arrive"},
-  {k:"領料", t:"check"},
-  {k:"工令完工", t:"check"},
+  {id:"arrive", label:"到料時間", auto:true},
+  {id:"pickNo", label:"領料單號/調撥單號", auto:true, mono:true},
+  {id:"picked", label:"領料", auto:true, check:true},
+  {id:"doneFlag", label:"工令完工", auto:true, check:true},
+  {id:"due", label:"交期", auto:true},
   {k:"答交", t:"text"},
   {k:"作業時間", t:"text"},
-  {k:"領料單號/調撥單號", label:"領料單號/調撥單號", t:"text", upper:true},
   {k:"出貨點", t:"text", list:["出貨客戶","五股包裝"]},
-  {k:"交期", t:"text"},
-  {id:"code", label:"產品編號", auto:true},
+  {id:"parent", label:"上階工單", auto:true, mono:true},
+  {id:"semi", label:"半成品完工", auto:true},
+  {id:"code", label:"產品編號", auto:true, mono:true},
   {k:"備註", t:"text", wide:true},
   {id:"status", label:"狀態"},
 ];
-let pin = store.get("pin",""), options = {}, orders = [], saved = new Map(), limit = 100, queue = Promise.resolve();
+let pin = store.get("pin",""), options = {}, orders = [], planOf = new Map(), saved = new Map(), limit = 100, queue = Promise.resolve();
 const timers = new Map(), pending = new Set();
 // 品項 that actually appear in the 五股廠(生產組) sheet (checked 2026-10-14 against 訂單計畫單: 289 of 777 orders; packaging items such as 盒/袋裝/5包裝 never do).
 const TRANSIT_ITEMS = ["7混料","4三面封粉包","4粉包"];   // powder first; capsule items (4膠囊, 4打排, 2換膠囊) are hidden for now
@@ -167,7 +171,7 @@ $("pinGo").onclick=()=>{const v=$("pinInput").value.trim();if(!v)return;pin=v;st
 $("pinInput").addEventListener("keydown",e=>{if(e.key==="Enter")$("pinGo").click()});
 
 // ---- rows ----
-const done = r => !!r && (r["工令完工"]==="是"||r["進度說明"]==="完工");
+const isDone = (plan,s) => !!(plan?.done || s?.["進度說明"]==="完工");   // 工令完工 ticked in 計畫單平台, or marked 完工 here
 const keyOf = new Map(), viewList = [];
 function allRows(){
   const seen=new Set(), out=[];
@@ -189,8 +193,8 @@ function visibleRows(){
     if(item==="__transit"){if(!s&&!TRANSIT_ITEMS.includes(r.plan?.item)) return false}   // rows already filled in stay visible
     else if(item&&r.plan?.item!==item) return false;
     if(mc&&s?.["機台"]!==mc) return false;
-    if(st==="open"&&done(s)) return false;
-    if(st==="done"&&!done(s)) return false;
+    if(st==="open"&&isDone(r.plan,s)) return false;
+    if(st==="done"&&!isDone(r.plan,s)) return false;
     if(st==="unassigned"&&s?.["機台"]) return false;
     if(st==="assigned"&&!s?.["機台"]) return false;
     if(!q) return true;
@@ -219,7 +223,7 @@ function makeInput(c, r){
   return el;
 }
 function buildRow(r){
-  const tr=document.createElement("tr"); tr.dataset.no=r.no; if(r.saved) tr.className="saved"; if(done(r.saved)) tr.classList.add("done");
+  const tr=document.createElement("tr"); tr.dataset.no=r.no; if(r.saved) tr.className="saved"; if(isDone(r.plan,r.saved)) tr.classList.add("done");
   const name=r.plan?.name||r.saved?.["產品名稱"]||"", code=r.plan?.code||r.saved?.["產品編號"]||"";
   const qty=(r.plan?.qty??r.saved?.["數量"]??"")+" "+(r.plan?.unit??r.saved?.["單位"]??"");
   for(const c of COLS){
@@ -233,6 +237,8 @@ function buildRow(r){
     else if(c.id==="qty"){td.textContent=qty.trim();td.style.textAlign="right"}
     else if(c.id==="item") td.textContent=r.plan?.item||"";
     else if(c.id==="code"){td.className+=" mono";td.textContent=code}
+    else if(c.id==="picked"||c.id==="doneFlag"){td.className+=" chk";td.textContent=(c.id==="picked"?r.plan?.picked:r.plan?.done)?"✔":""}
+    else if(c.auto&&c.id!=="people"&&c.id!=="status"){td.textContent=r.plan?.[c.id]||"";if(c.mono)td.className+=" mono"}
     else if(c.id==="people"){td.dataset.people="1";td.style.textAlign="center";td.textContent=peopleOf(r.saved).length||""}
     else if(c.id==="status"){td.className+=" status";setStatus(td,r.saved?"good":"",r.saved?"✓ 已存 "+r.saved["更新時間"].slice(5,16):"");
       if(r.saved){const b=document.createElement("button");b.className="btn btn-mini";b.textContent="清除";b.title="清除這張單填過的資料（訂單計畫單不受影響）";b.dataset.clear=r.no;td.append(" ",b)}}
@@ -246,7 +252,7 @@ function setStatus(td,cls,text){td.className="status"+(cls?" "+cls:"");td.textCo
 function render(){
   const rows=visibleRows(), body=$("rows"); body.textContent=""; viewList.length=0; viewList.push(...rows);
   const frag=document.createDocumentFragment(); for(const r of rows.slice(0,limit)) frag.append(buildRow(r)); body.append(frag);
-  $("summary").textContent="顯示 "+Math.min(limit,rows.length)+" / 符合 "+rows.length+" 張・訂單計畫單共 "+orders.length+" 張・已填 "+saved.size+" 張";
+  $("summary").textContent="顯示 "+Math.min(limit,rows.length)+" / 符合 "+rows.length+" 張・計畫單平台（五股廠）共 "+orders.length+" 張・已填 "+saved.size+" 張";
   $("moreBtn").hidden=rows.length<=limit; $("moreBtn").textContent="顯示更多（還有 "+(rows.length-limit)+" 張）";
 }
 function buildHead(){
@@ -261,7 +267,7 @@ function buildFilters(){
 }
 let rt=null; for(const id of ["q","itemFilter","machineFilter","statusFilter"]) $(id).addEventListener("input",()=>{clearTimeout(rt);limit=100;rt=setTimeout(render,id==="q"?250:0)});
 $("moreBtn").onclick=()=>{limit+=100;render()};
-$("reloadBtn").onclick=()=>start();
+$("reloadBtn").onclick=()=>start(true);
 
 // ---- editing: every change saves its row (rows are keyed by 工令單號) ----
 function collect(tr){
@@ -287,7 +293,7 @@ async function saveRow(tr){
 }
 function applySaved(tr,row){
   const no=tr.dataset.no, td=statusCell(tr);
-  saved.set(no,row); tr.classList.add("saved"); tr.classList.toggle("done",done(row));
+  saved.set(no,row); tr.classList.add("saved"); tr.classList.toggle("done",isDone(planOf.get(no),row));
   tr.querySelector("[data-people]").textContent=row["人數"]||"";
   setStatus(td,"good","✓ 已存 "+row["更新時間"].slice(5,16));
   const b=document.createElement("button");b.className="btn btn-mini";b.textContent="清除";b.dataset.clear=no;td.append(" ",b);
@@ -327,27 +333,46 @@ function queueOrder(tr,k){
   }).finally(()=>pending.delete(no));
 }
 function renumber(){ [...$("rows").children].forEach((tr,i)=>{const k=(i+1)*1000; keyOf.set(tr.dataset.no,k); queueOrder(tr,k)}) }
-let dragTr=null, dropAt=null;
-const clearDrop=()=>{for(const t of $("rows").querySelectorAll(".drop-before,.drop-after")) t.classList.remove("drop-before","drop-after")};
-$("rows").addEventListener("mousedown",e=>{if(e.target.dataset?.grip) e.target.closest("tr").draggable=true});
-$("rows").addEventListener("dragstart",e=>{
-  const tr=e.target.closest?.("tr"); if(!tr||!tr.draggable) return;
-  dragTr=tr; tr.classList.add("dragging"); e.dataTransfer.effectAllowed="move"; e.dataTransfer.setData("text/plain",tr.dataset.no);
+// Real drag: the row lifts and follows the pointer while the other rows move out of its way; letting go drops it there.
+let drag=null;
+$("rows").addEventListener("pointerdown",e=>{
+  const grip=e.target.closest?.("[data-grip]"); if(!grip||e.button>0) return;
+  e.preventDefault();
+  const tr=grip.closest("tr"), box=tr.getBoundingClientRect();
+  drag={tr,grab:e.clientY-box.top,y:e.clientY,from:tr.nextElementSibling,scroller:tr.closest(".tablewrap"),raf:0};
+  tr.classList.add("lifted"); document.body.classList.add("dragging-rows");
+  window.addEventListener("pointermove",onDragMove); window.addEventListener("pointerup",onDragEnd); window.addEventListener("pointercancel",onDragEnd);
+  followRow(); loopScroll();
 });
-$("rows").addEventListener("dragover",e=>{
-  if(!dragTr) return; e.preventDefault();
-  const tr=e.target.closest("tr"); if(!tr||tr===dragTr) return;
-  const box=tr.getBoundingClientRect(), after=e.clientY>box.top+box.height/2;
-  clearDrop(); tr.classList.add(after?"drop-after":"drop-before"); dropAt={tr,after};
-});
-$("rows").addEventListener("drop",e=>{
-  if(!dragTr||!dropAt) return; e.preventDefault();
-  const {tr,after}=dropAt; tr.parentNode.insertBefore(dragTr,after?tr.nextSibling:tr); persistOrder(dragTr);
-});
-$("rows").addEventListener("dragend",()=>{
-  clearDrop(); if(dragTr){dragTr.classList.remove("dragging");dragTr.draggable=false}
-  dragTr=null; dropAt=null;
-});
+function onDragMove(e){ if(drag){drag.y=e.clientY;followRow()} }
+function followRow(){
+  const tr=drag.tr, top=drag.y-drag.grab;
+  tr.style.transform="";                                  // measure where the row sits in the table
+  let rect=tr.getBoundingClientRect();
+  for(;;){                                                // swap places while the row's centre has passed a neighbour's centre
+    const mid=top+rect.height/2, prev=tr.previousElementSibling, next=tr.nextElementSibling;
+    const pb=prev&&prev.getBoundingClientRect(), nb=next&&next.getBoundingClientRect();
+    if(prev&&mid<pb.top+pb.height/2) tr.parentNode.insertBefore(tr,prev);
+    else if(next&&mid>nb.top+nb.height/2) tr.parentNode.insertBefore(next,tr);
+    else break;
+    rect=tr.getBoundingClientRect();
+  }
+  tr.style.transform="translateY("+(top-rect.top)+"px)";
+}
+function loopScroll(){                                    // keep scrolling while the pointer is near the top or bottom edge
+  if(!drag) return;
+  const r=drag.scroller.getBoundingClientRect(), up=r.top+80, down=r.bottom-48; let dy=0;
+  if(drag.y<up) dy=-Math.ceil((up-drag.y)/6); else if(drag.y>down) dy=Math.ceil((drag.y-down)/6);
+  if(dy){drag.scroller.scrollTop+=dy;followRow()}
+  drag.raf=requestAnimationFrame(loopScroll);
+}
+function onDragEnd(){
+  if(!drag) return;
+  const {tr,from}=drag; cancelAnimationFrame(drag.raf); drag=null;
+  window.removeEventListener("pointermove",onDragMove); window.removeEventListener("pointerup",onDragEnd); window.removeEventListener("pointercancel",onDragEnd);
+  tr.style.transform=""; tr.classList.remove("lifted"); document.body.classList.remove("dragging-rows");
+  if(tr.nextElementSibling!==from) persistOrder(tr);
+}
 $("rows").addEventListener("click",e=>{
   const d=Number(e.target.dataset?.move); if(!d) return;
   const tr=e.target.closest("tr"), sib=d<0?tr.previousElementSibling:tr.nextElementSibling; if(!sib) return;
@@ -356,13 +381,13 @@ $("rows").addEventListener("click",e=>{
 });
 window.addEventListener("beforeunload",e=>{if(pending.size) e.preventDefault()});   // do not lose edits that are still waiting to be saved
 
-async function start(){
+async function start(fresh){
   if(!API){say("還沒設定後端網址（config.js 的 sheetApi）。");return}
   if(!pin){showPin();return}
-  say("讀取訂單計畫單中…（第一次可能要幾秒）","ok");
-  const [o,b]=await Promise.all([get({action:"options"}),get({action:"board"})]);
+  say(fresh?"重新讀取計畫單平台中…（要等十幾秒）":"讀取計畫單平台中…（第一次可能要幾秒）","ok");
+  const [o,b]=await Promise.all([get({action:"options"}),get({action:"board",...(fresh?{fresh:"1"}:{})})]);
   if(!o||!b) return;
-  say(""); options=o.options||{}; if(options["機台"]) options["機台"]=options["機台"].filter(m=>!CAPSULE.test(m)); orders=b.orders||[]; saved=new Map((b.rows||[]).map(r=>[r["工令單號"],r]));
+  say(""); options=o.options||{}; if(options["機台"]) options["機台"]=options["機台"].filter(m=>!CAPSULE.test(m)); orders=b.orders||[]; planOf=new Map(orders.map(o=>[o.no,o])); saved=new Map((b.rows||[]).map(r=>[r["工令單號"],r]));
   if(!Object.keys(options).length) say("下拉選項讀不到：請在 Apps Script 指令碼屬性加上 BKE_SHEET_ID。目前下拉欄位先用手打。");
   buildHead(); buildFilters(); $("listPanel").hidden=false; render();
 }

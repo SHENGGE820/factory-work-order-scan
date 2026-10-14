@@ -8,7 +8,7 @@
  * 手機 App：送來一個工令單號，只回傳四項（工令單號、產品名稱、產品編號、數量＋單位）。
  * 電腦表單（form.html）：用同一組工廠密碼，另外提供
  *   action=options  讀「BKE在途工單」的「選單」分頁，回傳下拉選項（含員工名字，所以不放在公開網頁裡）
- *   action=board    一次回傳訂單計畫單的全部工令單，加上已填的生產組資料（表格畫面用）
+ *   action=board    一次回傳要排的工令單（讀 BKE在途工單 的「計畫單平台」，只取代工廠＝五股廠且在訂單計畫單裡的單），加上已填的生產組資料（表格畫面用）
  *   action=list     只列出已填的生產組資料
  *   save / remove   以工令單號為鍵，存入或清除一張單的填寫內容（POST）
  * 資料存在這個帳號自己 Google 雲端的「五股廠生產組表單」試算表，第一次存檔時自動建立。
@@ -24,6 +24,15 @@ const CONFIG = {
   CACHE_SECONDS: 300, // 試算表改了之後，最多 5 分鐘內會反映到 App
 };
 const ORDER_NO = /[A-Z]\d{10}/g;
+// 「BKE在途工單」各分頁的 交期、領料單號、到料時間、領料、工令完工、上階工單 原本都是用公式從「計畫單平台」依工令單號查出來的，
+// 所以表格也直接讀這個分頁（欄位用表頭文字對應，不依位置）。
+const PLATFORM = {
+  SHEET: '計畫單平台',
+  VENDOR: '五股廠',
+  CACHE_SECONDS: 1200, // 這個分頁很大（五千多列），讀一次要好幾秒，所以多存一會；表格上有「重新讀取」可以略過快取
+  COLS: { no: '工令單號', code: '產品編號', name: '產品名稱', qty: '數量', unit: '單位', item: '品項', arrive: '預計料齊到倉庫日',
+    pickNo: '領料單號/調撥單號', picked: '領料', vendor: '代工廠', due: '交貨日', done: '工令完工', parent: '上階工令單', semi: '半成品完工' },
+};
 
 function doGet(e) {
   const p = (e && e.parameter) || {};
@@ -32,8 +41,8 @@ function doGet(e) {
   if (p.action === 'options') return json_({ ok: true, options: options_() });
   if (p.action === 'list') return json_({ ok: true, rows: list_() });
   if (p.action === 'board') {
-    const idx = index_();
-    return json_({ ok: true, orders: Object.keys(idx).map(k => idx[k]), rows: list_() });
+    if (p.fresh) { cacheDel_('idx'); cacheDel_('plat'); }
+    return json_({ ok: true, orders: board_(), rows: list_() });
   }
   const no = String(p.no || '').trim().toUpperCase();
   if (!/^[A-Z]\d{10}$/.test(no)) return json_({ ok: false, error: 'bad_format' });
@@ -64,12 +73,18 @@ function auth_(p) {
 }
 
 // 快取單筆上限約 100KB，全部工令單放不下，所以切段存放。
-function cachePut_(key, text) {
+function cachePut_(key, text, seconds) {
   const cache = CacheService.getScriptCache();
   const size = 30000, n = Math.ceil(text.length / size);
   const all = { [key + '_n']: String(n) };
   for (let i = 0; i < n; i++) all[key + '_' + i] = text.slice(i * size, (i + 1) * size);
-  try { cache.putAll(all, CONFIG.CACHE_SECONDS); } catch (err) { /* 放不進去就每次直接讀表 */ }
+  try { cache.putAll(all, seconds || CONFIG.CACHE_SECONDS); } catch (err) { /* 放不進去就每次直接讀表 */ }
+}
+function cacheDel_(key) {
+  const cache = CacheService.getScriptCache();
+  const n = Number(cache.get(key + '_n') || 0), keys = [key + '_n'];
+  for (let i = 0; i < n; i++) keys.push(key + '_' + i);
+  cache.removeAll(keys);
 }
 function cacheGet_(key) {
   const cache = CacheService.getScriptCache();
@@ -117,6 +132,43 @@ function index_() {
   });
   cachePut_('idx', JSON.stringify(idx));
   return idx;
+}
+
+// 表格要排的單：計畫單平台裡「代工廠＝五股廠」且仍在訂單計畫單(NEW)的單。讀不到計畫單平台時，退回用訂單計畫單。
+function board_() {
+  const idx = index_();
+  const plat = platform_(idx);
+  if (!plat.length) return Object.keys(idx).map(k => idx[k]);
+  return plat.map(o => Object.assign({}, o, { rework: !!(idx[o.no] && idx[o.no].rework) }));
+}
+
+function platform_(idx) {
+  const hit = cacheGet_('plat');
+  if (hit) return JSON.parse(hit);
+  const id = PropertiesService.getScriptProperties().getProperty('BKE_SHEET_ID');
+  const sh = id ? SpreadsheetApp.openById(id).getSheetByName(PLATFORM.SHEET) : null;
+  if (!sh) return [];
+  const clean = v => String(v).replace(/\s/g, '');
+  const width = Math.min(sh.getLastColumn(), 40);
+  const rows = sh.getRange(1, 1, sh.getLastRow(), width).getDisplayValues();
+  let hr = -1;
+  for (let r = 0; r < Math.min(6, rows.length); r++) if (rows[r].map(clean).indexOf(PLATFORM.COLS.no) >= 0) { hr = r; break; }
+  if (hr < 0) return [];
+  const head = rows[hr].map(clean), col = {};
+  Object.keys(PLATFORM.COLS).forEach(k => { col[k] = head.indexOf(PLATFORM.COLS[k]); });
+  const cell = (row, k) => (col[k] >= 0 ? String(row[col[k]] || '').trim() : '');
+  const out = [], seen = {};
+  for (let r = hr + 1; r < rows.length; r++) {
+    const row = rows[r];
+    const no = (cell(row, 'no').toUpperCase().match(ORDER_NO) || [])[0];
+    if (!no || seen[no] || !idx[no] || cell(row, 'vendor') !== PLATFORM.VENDOR) continue;
+    seen[no] = true;
+    out.push({ no, code: cell(row, 'code'), name: cell(row, 'name'), qty: cell(row, 'qty'), unit: cell(row, 'unit'),
+      item: cell(row, 'item'), arrive: cell(row, 'arrive'), pickNo: cell(row, 'pickNo'), picked: cell(row, 'picked') === 'TRUE',
+      due: cell(row, 'due'), done: cell(row, 'done') === 'TRUE', parent: cell(row, 'parent'), semi: cell(row, 'semi') });
+  }
+  cachePut_('plat', JSON.stringify(out), PLATFORM.CACHE_SECONDS);
+  return out;
 }
 
 function findHeader_(rows) {
@@ -278,7 +330,7 @@ function json_(obj) {
 
 /** 在編輯器裡選這個函式按「執行」，可檢查讀到幾張單（結果只會顯示在你自己的執行紀錄）。 */
 function checkSetup() {
-  CacheService.getScriptCache().remove('idx');
+  cacheDel_('idx');
   const idx = index_();
   const nos = Object.keys(idx);
   Logger.log('讀到 %s 張工令單。PIN 已設定：%s', nos.length, !!PropertiesService.getScriptProperties().getProperty('PIN'));
@@ -288,8 +340,10 @@ function checkSetup() {
 /** 檢查表單這一側：建立（或找到）「五股廠生產組表單」試算表，並讀「選單」下拉選項。 */
 function checkForm() {
   CacheService.getScriptCache().remove('opts');
+  cacheDel_('plat');
   const sh = db_();
   Logger.log('表單試算表：%s（目前 %s 筆）', sh.getParent().getUrl(), Math.max(0, sh.getLastRow() - 1));
   const o = options_();
+  Logger.log('計畫單平台（五股廠）：%s 張', platform_(index_()).length);
   Logger.log('下拉選項：%s', Object.keys(o).map(k => k + ' ' + o[k].length + ' 個').join('、') || '讀不到（請設定 BKE_SHEET_ID）');
 }

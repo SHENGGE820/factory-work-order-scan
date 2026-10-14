@@ -10,6 +10,7 @@ class Sheet {
   insertColumnsAfter(_, n) { this.cols += n; }
   getName() { return this.name; }
   getLastRow() { return this.rows.length; }
+  getLastColumn() { return Math.max(0, ...this.rows.map(r => r.length)); }
   getDataRange() { return { getDisplayValues: () => this.rows.map(r => r.map(v => String(v ?? ''))) }; }
   setName(n) { this.name = n; }
   setFrozenRows() {}
@@ -19,8 +20,10 @@ class Sheet {
   getRange(r, c, nr = 1, nc = 1) {
     const sh = this;
     if (r + nr - 1 > this.max || c + nc - 1 > this.cols) throw new Error('outside the sheet');
+    const at = (i, j) => sh.rows[r - 1 + i]?.[c - 1 + j] ?? '';
     return {
-      getValues() { return Array.from({ length: nr }, (_, i) => Array.from({ length: nc }, (_, j) => sh.rows[r - 1 + i]?.[c - 1 + j] ?? '')); },
+      getValues() { return Array.from({ length: nr }, (_, i) => Array.from({ length: nc }, (_, j) => at(i, j))); },
+      getDisplayValues() { return Array.from({ length: nr }, (_, i) => Array.from({ length: nc }, (_, j) => String(at(i, j)))); },
       setNumberFormat() { return this; },
       setFontWeight() { return this; },
       setValues(vals) {
@@ -43,10 +46,27 @@ const optRows = [
   ['小華', '3', '100kg混料', '3', '時', '已拋光', '已QC', '作業中', '', '', ''],
   ['小明', '4', '小粉包機-1', '', '', '', '', '', '', '', ''],
 ];
-const sheets = { plan: new Sheet('訂單計畫單(NEW)', planRows), opts: new Sheet('選單', optRows) };
+// 計畫單平台: same columns as the plan sheet plus 領料單號, 領料, 代工廠, 交貨日, 工令完工, 上階工令單 (matched by header text)
+const PH = ['日期', '', '', '', '', '產品編號', '產品名稱', '數量', '單位', '工令單號', '', '', 'BOM確單', '工令', '品項', '預計\n料齊到\n倉庫日', '備註',
+  '領料單號/調撥單號', '領料', '代工廠', '', '確認交貨日', '交期YYY.MM', '交貨日', '', '銷貨單號', '', '組合', '工令完工', '上階工令單', '半成品完工'];
+const prow = o => { const r = Array(PH.length).fill(''); const put = (h, v) => { r[PH.indexOf(h)] = v; };
+  put('工令單號', o.no); put('產品編號', o.code || ''); put('產品名稱', o.name || ''); put('數量', o.qty || ''); put('單位', o.unit || ''); put('品項', o.item || '');
+  put('預計\n料齊到\n倉庫日', o.arrive || ''); put('領料單號/調撥單號', o.pickNo || ''); put('領料', o.picked || 'FALSE'); put('代工廠', o.vendor || '');
+  put('交貨日', o.due || ''); put('工令完工', o.done || 'FALSE'); put('上階工令單', o.parent || ''); put('半成品完工', o.semi || ''); return r; };
+const platRows = [
+  ['計畫單平台'],
+  PH,
+  prow({ no: 'V1150831005', code: '4104002200098', name: '2M_西洋梨型 裸包 (每包3公克)', qty: '6,000', unit: '包', item: '4粉包', arrive: '9/11', pickNo: 'W1150903013', picked: 'TRUE', vendor: '五股廠', due: '115.1001' }),
+  prow({ no: 'V1150831006', code: '7101002200144', name: '2M_西洋梨 混料(每公斤)', qty: '18', unit: '公斤', item: '7混料', arrive: '00', vendor: '五股廠', done: 'TRUE', parent: 'V1150831005' }),
+  prow({ no: 'X1150901001', code: '4104000000001', name: '重工品', qty: '5', unit: '包', item: '5包裝', vendor: '全宏' }),
+  prow({ no: 'V1150831005', vendor: '五股廠', due: 'duplicate row is ignored' }),
+  prow({ no: 'V9999999999', vendor: '五股廠', item: '7混料' }), // not in the plan sheet any more
+];
+const sheets = { plan: new Sheet('訂單計畫單(NEW)', planRows), opts: new Sheet('選單', optRows), plat: new Sheet('計畫單平台', platRows) };
+Object.values(sheets).forEach(sh => { sh.cols = 71; }); // the real 計畫單平台 has 71 columns
 const books = {
   plan: { getSheetByName: n => n === '訂單計畫單(NEW)' ? sheets.plan : null, getSheets: () => [sheets.plan] },
-  bke: { getSheetByName: n => n === '選單' ? sheets.opts : null },
+  bke: { getSheetByName: n => ({ '選單': sheets.opts, '計畫單平台': sheets.plat }[n] || null) },
 };
 let dbBook = null, creates = 0;
 const props = { PIN: '1234', SHEET_ID: 'plan', BKE_SHEET_ID: 'bke' };
@@ -54,7 +74,7 @@ const cache = new Map();
 let uuid = 0;
 const g = {
   PropertiesService: { getScriptProperties: () => ({ getProperty: k => props[k] ?? null, setProperty: (k, v) => { props[k] = v; } }) },
-  CacheService: { getScriptCache: () => ({ get: k => cache.get(k) ?? null, put: (k, v) => cache.set(k, v), putAll: o => Object.entries(o).forEach(([k, v]) => cache.set(k, v)), remove: k => cache.delete(k) }) },
+  CacheService: { getScriptCache: () => ({ get: k => cache.get(k) ?? null, put: (k, v) => cache.set(k, v), putAll: o => Object.entries(o).forEach(([k, v]) => cache.set(k, v)), remove: k => cache.delete(k), removeAll: ks => ks.forEach(k => cache.delete(k)) }) },
   LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
   SpreadsheetApp: {
     openById: id => {
@@ -95,15 +115,15 @@ assert.deepEqual(o['天/時'], ['天', '時']);
 assert.deepEqual(o['進度說明'], ['完工', '作業中']);
 assert.equal(Object.keys(o).some(k => /拋光|QC/.test(k)), false);
 
-// board: every plan order in one call, with the extra plan columns, and nothing saved yet
+// board: orders come from 計畫單平台 (代工廠 = 五股廠, still in the plan sheet), with the columns the form shows automatically
 let b = get({ action: 'board' });
 assert.equal(creates, 1);
 assert.deepEqual(b.rows, []);
-assert.deepEqual(b.orders.map(x => x.no), ['V1150831005', 'V1150831006', 'X1150901001']);
-assert.equal(b.orders[0].item, '4粉包');
-assert.equal(b.orders[0].arrive, '9/11');
-assert.equal(b.orders[2].rework, true);
-assert.equal(b.orders[2].code, '4104000000001');
+assert.deepEqual(b.orders.map(x => x.no), ['V1150831005', 'V1150831006']);
+assert.deepEqual(b.orders[0], { no: 'V1150831005', code: '4104002200098', name: '2M_西洋梨型 裸包 (每包3公克)', qty: '6,000', unit: '包', item: '4粉包', arrive: '9/11',
+  pickNo: 'W1150903013', picked: true, due: '115.1001', done: false, parent: '', semi: '', rework: false });
+assert.equal(b.orders[1].done, true);
+assert.equal(b.orders[1].parent, 'V1150831005');
 
 // save keyed by work-order number: plan data wins, 人數 counts the selected people
 let r = post({ action: 'save', row: { 工令單號: 'v1150831005', 產品名稱: '被竄改', 機台: '小粉包機-1', 作業人員1: '小明', 作業人員2: '小華', 人數: '9', 領料: '是' } });
@@ -120,7 +140,6 @@ assert.equal(r.ok, true);
 assert.equal(r.row.id, id);
 assert.equal(r.row['人數'], '1');
 assert.equal(r.row['機台'], '小粉包機-1');
-assert.equal(r.row['領料'], '是');
 assert.equal(r.row['進度說明'], '作業中');
 r = post({ action: 'save', row: { 工令單號: 'V1150831005', 作業人員1: '' } });
 assert.equal(r.row['人數'], '');
@@ -146,7 +165,17 @@ assert.deepEqual(b.rows.map(x => x['工令單號']), ['V1150831005', 'V115083100
 assert.equal(post({ action: 'remove', no: 'V1150831005' }).ok, true);
 assert.deepEqual(get({ action: 'list' }).rows.map(x => x['工令單號']), ['V1150831006']);
 assert.equal(post({ action: 'remove', no: 'V1150831005' }).error, 'row_missing');
-assert.equal(get({ action: 'board' }).orders.length, 3);
+assert.equal(get({ action: 'board' }).orders.length, 2);
+
+// the platform sheet is cached (it is big); fresh=1 reads it again
+sheets.plat.rows[2][PH.indexOf('領料')] = 'FALSE';
+assert.equal(get({ action: 'board' }).orders[0].picked, true, 'served from cache');
+assert.equal(get({ action: 'board', fresh: '1' }).orders[0].picked, false, 'fresh read');
+
+// without the platform sheet the board falls back to the plan sheet's orders
+const bkeId = props.BKE_SHEET_ID; delete props.BKE_SHEET_ID; cache.clear();
+assert.deepEqual(get({ action: 'board' }).orders.map(x => x.no), ['V1150831005', 'V1150831006', 'X1150901001']);
+props.BKE_SHEET_ID = bkeId; cache.clear();
 
 // a saved order can still be edited after it left the plan sheet
 sheets.plan.rows.splice(3, 1); cache.clear();
@@ -164,14 +193,14 @@ assert.equal(old.rows[0].length >= 32 && old.rows[0][31] === '排序', true);
 assert.deepEqual(upgraded.map(x => x['工令單號']), ['V1150831006']);
 assert.equal(upgraded[0]['排序'], '');
 
-// the plan index is cached in chunks, so a big sheet still fits and the second call skips the sheet
+// the plan index is cached in chunks, so a big sheet still fits and the second lookup skips the sheet
 cache.clear();
 const big = new Sheet('訂單計畫單(NEW)', [planRows[0], planRows[1]]);
 for (let i = 0; i < 800; i++) big.rows.push([`4104${String(i).padStart(9, '0')}`, '品名'.repeat(20) + i, '1,000', '包', `V${1150000000 + i}`, '4粉包', '9/1']);
 books.plan = { getSheetByName: () => big, getSheets: () => [big] };
-assert.equal(get({ action: 'board' }).orders.length, 800);
+assert.equal(get({ no: 'V1150000799' }).order.no, 'V1150000799');
 assert.ok(Number(cache.get('idx_n')) > 1, 'index should be split into several cache chunks');
 big.rows.length = 2; // wipe the sheet: only the cache can still answer
-assert.equal(get({ action: 'board' }).orders.length, 800);
+assert.equal(get({ no: 'V1150000001' }).order.no, 'V1150000001');
 f.checkForm();
 console.log('form backend OK');

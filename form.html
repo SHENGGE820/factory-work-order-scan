@@ -78,7 +78,7 @@ td.chk{text-align:center}
   <section class="panel" id="listPanel" hidden>
     <div class="tools">
       <input id="q" type="search" placeholder="搜尋工令單號、品名、人員">
-      <select id="itemFilter" aria-label="品項"><option value="">全部品項</option></select>
+      <select id="itemFilter" aria-label="品項"><option value="__transit">在途品項（預設）</option><option value="">全部品項</option></select>
       <select id="machineFilter" aria-label="機台"><option value="">全部機台</option></select>
       <select id="statusFilter" aria-label="狀態">
         <option value="open">未完工</option><option value="all">全部</option>
@@ -137,6 +137,8 @@ const COLS = [
 ];
 let pin = store.get("pin",""), options = {}, orders = [], saved = new Map(), limit = 100, queue = Promise.resolve();
 const timers = new Map(), pending = new Set();
+// 品項 that actually appear in the 五股廠(生產組) sheet (checked 2026-10-14 against 訂單計畫單: 289 of 777 orders; packaging items such as 盒/袋裝/5包裝 never do).
+const TRANSIT_ITEMS = ["7混料","4三面封粉包","4粉包","4打排","4膠囊","2換膠囊","4液瓶"];
 
 function say(text, cls="err"){const m=$("msg");m.className="msg "+cls;m.textContent=text;m.hidden=!text}
 const ERR = {bad_pin:"工廠密碼不正確。", not_configured:"後端還沒設定密碼。", bad_format:"工令單號格式不對。", not_found:"訂單計畫單查不到這個工令單號。", row_missing:"這筆資料已經不存在，請重新整理。", bad_request:"送出的資料有問題。"};
@@ -169,7 +171,8 @@ function visibleRows(){
   const q=$("q").value.trim().toLowerCase(), item=$("itemFilter").value, mc=$("machineFilter").value, st=$("statusFilter").value;
   return allRows().filter(r=>{
     const s=r.saved;
-    if(item&&r.plan?.item!==item) return false;
+    if(item==="__transit"){if(!s&&!TRANSIT_ITEMS.includes(r.plan?.item)) return false}   // rows already filled in stay visible
+    else if(item&&r.plan?.item!==item) return false;
     if(mc&&s?.["機台"]!==mc) return false;
     if(st==="open"&&done(s)) return false;
     if(st==="done"&&!done(s)) return false;
@@ -233,8 +236,8 @@ function buildHead(){
   for(const c of COLS) if(c.list&&!document.getElementById("dl-"+c.k)){const dl=document.createElement("datalist");dl.id="dl-"+c.k;for(const v of c.list)dl.append(new Option(v));document.body.append(dl)}
 }
 function buildFilters(){
-  const fill=(sel,vals)=>{const cur=sel.value;sel.length=1;for(const v of vals)sel.append(new Option(v,v));sel.value=vals.includes(cur)?cur:""};
-  fill($("itemFilter"),[...new Set(orders.map(o=>o.item).filter(Boolean))].sort());
+  const fill=(sel,vals,keep=1)=>{const cur=sel.value;sel.length=keep;for(const v of vals)sel.append(new Option(v,v));sel.value=cur&&[...sel.options].some(o=>o.value===cur)?cur:sel.options[0].value};
+  fill($("itemFilter"),[...new Set(orders.map(o=>o.item).filter(Boolean))].sort(),2);
   fill($("machineFilter"),options["機台"]||[...new Set([...saved.values()].map(r=>r["機台"]).filter(Boolean))]);
 }
 let rt=null; for(const id of ["q","itemFilter","machineFilter","statusFilter"]) $(id).addEventListener("input",()=>{clearTimeout(rt);limit=100;rt=setTimeout(render,id==="q"?250:0)});

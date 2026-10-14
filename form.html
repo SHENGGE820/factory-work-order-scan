@@ -75,6 +75,56 @@ td.chk{text-align:center}
 .status{min-width:96px;font-size:12px;color:var(--muted)}
 .status.bad{color:var(--stop);font-weight:700}
 .status.good{color:var(--go)}
+/* view switch */
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{all:unset;cursor:pointer;padding:6px 16px;font-weight:700;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.seg button:focus-visible{outline:3px solid var(--accent);outline-offset:-3px}
+/* table view, tidier: machine blocks are labels, empty ones are thin drop lines */
+tr.blk .lab{background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:1px 12px}
+tr.blk.wait .lab{background:transparent;border-color:rgba(255,255,255,.6)}
+tr.blk.empty td{padding:1px 14px;font-weight:400;color:var(--muted)}
+tr.blk.empty .lab{opacity:.7}
+/* board view: one lane per machine, a card per work order */
+#board{display:flex;flex-direction:column;gap:14px}
+.bsec{border:1px solid var(--line);border-radius:12px;background:var(--surface);overflow:hidden}
+.bsec-h{all:unset;box-sizing:border-box;width:100%;background:#000;color:#fff;font-size:16px;font-weight:700;padding:8px 14px;cursor:pointer;display:flex;gap:8px;align-items:baseline}
+.bsec-h:focus-visible{outline:3px solid var(--accent);outline-offset:-3px}
+.bsec-h .cnt{font-weight:400;opacity:.75;font-size:13px}
+.lanes{display:flex;gap:10px;padding:12px;overflow-x:auto;align-items:flex-start}
+.lane{flex:0 0 232px;background:var(--bg);border-radius:10px;padding:8px;display:flex;flex-direction:column;gap:6px}
+.lane.wait{background:rgba(196,58,47,.10);box-shadow:inset 0 0 0 1px rgba(196,58,47,.35)}
+.lane-h{font-size:13px;font-weight:700;display:flex;justify-content:space-between;padding:2px 4px}
+.lane.wait .lane-h{color:var(--stop)}
+.lane-h .cnt{font-weight:400;color:var(--muted)}
+.cards{display:flex;flex-direction:column;gap:6px;min-height:48px;border-radius:8px}
+.cards .hint{font-size:12px;color:var(--muted);text-align:center;padding:12px 6px;border:1px dashed var(--line);border-radius:8px}
+.cards:has(.card) .hint{display:none}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:7px 9px;font-size:13px;line-height:1.45;cursor:grab;touch-action:none;user-select:none}
+.card:hover{border-color:var(--muted)}
+.card:focus-visible{outline:3px solid var(--accent);outline-offset:1px}
+.card .top{display:flex;justify-content:space-between;gap:6px;align-items:baseline}
+.card .no{font-family:var(--font-mono);font-weight:700;font-size:12px}
+.card .nm{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.card .meta{font-size:12px;color:var(--muted)}
+.card .pp{display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
+.card .pp span{font-size:12px;background:var(--auto-bg);border-radius:4px;padding:0 6px}
+.card .tag{font-size:11px;font-weight:700;border-radius:4px;padding:0 6px;background:var(--go-bg);color:var(--go)}
+.card .tag.rw{background:#fdead7;color:#b54708}
+.card.working{box-shadow:inset 3px 0 0 var(--go)}
+.card.done{opacity:.55}
+.card.ph{opacity:.3;border-style:dashed}
+.card.ghost{position:fixed;z-index:50;pointer-events:none;box-shadow:0 10px 24px rgba(0,0,0,.28);transform:rotate(1.5deg);margin:0}
+/* card editor */
+.editor{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.35);display:flex;justify-content:flex-end}
+.ed-box{width:min(560px,100%);height:100%;overflow:auto;background:var(--surface);padding:16px 18px;display:flex;flex-direction:column;gap:12px}
+.ed-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.ed-head h2{margin:0;font-size:18px}
+.ed-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.ed-grid label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted)}
+.ed-grid label input,.ed-grid label select{color:var(--ink);font-size:14px;width:100%}
+.ed-info{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px 12px;background:var(--auto-bg);border-radius:8px;padding:10px 12px;font-size:13px}
+.ed-info div span{display:block;font-size:11px;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -93,6 +143,7 @@ td.chk{text-align:center}
 
   <section class="panel" id="listPanel" hidden>
     <div class="tools">
+      <div class="seg" role="group" aria-label="畫面"><button id="vBoard" aria-pressed="true">看板</button><button id="vTable" aria-pressed="false">表格</button></div>
       <input id="q" type="search" placeholder="搜尋工令單號、品名、人員">
       <select id="machineFilter" aria-label="機台"><option value="">全部機台</option></select>
       <select id="statusFilter" aria-label="狀態">
@@ -102,8 +153,10 @@ td.chk{text-align:center}
       <button class="btn" id="reloadBtn">重新讀取</button>
       <span class="note" id="summary"></span>
     </div>
-    <p class="note"><span class="legend">淺藍底</span> ＝ 自動帶出，不用填（產品、數量、到料時間、領料、工令完工、交期等都來自「計畫單平台」，那邊改了這裡就會跟著變；人數＝選了幾位作業人員）。其他欄位直接在表格裡選或填，改完會自動存檔。要調整順序，拖曳每列最左邊的 ⠿，或按 ▲ ▼。拖到別的「機台」區，那張單的機台就跟著換；拖到「等待安排」就清掉機台；拖到別的大分類（例如加大型粉包機）就換分類。點大分類的黑色標題可以收合。</p>
-    <div class="tablewrap">
+    <p class="note" id="boardNote">每台機台一欄、每張工令單一張卡片。把卡片拖到別的機台就換機台，拖回紅色「等待安排」就清掉機台，在同一欄上下拖就是調整先後順序；拖到別的大分類（例如加大型粉包機）就換分類。點卡片可以打開那張單填其他欄位。點黑色標題可以收合。</p>
+    <p class="note" id="tableNote"><span class="legend">淺藍底</span> ＝ 自動帶出，不用填（產品、數量、到料時間、領料、工令完工、交期等都來自「計畫單平台」，那邊改了這裡就會跟著變；人數＝選了幾位作業人員）。其他欄位直接在表格裡選或填，改完會自動存檔。要調整順序，拖曳每列最左邊的 ⠿，或按 ▲ ▼。拖到別的「機台」區，那張單的機台就跟著換；拖到「等待安排」就清掉機台；拖到別的大分類（例如加大型粉包機）就換分類。點大分類的黑色標題可以收合。</p>
+    <div id="board" hidden></div>
+    <div class="tablewrap" id="tableView">
       <table>
         <thead><tr id="head"></tr></thead>
         <tbody id="rows"></tbody>
@@ -321,10 +374,10 @@ function applyCollapsed(){
 }
 function refreshCounts(){                                   // numbers on the section and block headers
   let sec=null, blk=null, ns=0, nb=0;
-  const flush=()=>{if(sec)sec.querySelector(".cnt").textContent="（"+ns+"）"; if(blk)blk.querySelector(".cnt").textContent="（"+nb+"）"};
+  const flush=()=>{if(sec)sec.querySelector(".cnt").textContent="（"+ns+"）"; if(blk){blk.querySelector(".cnt").textContent=nb?"（"+nb+"）":"（空，可拖到這裡）";blk.classList.toggle("empty",!nb)}};
   for(const tr of $("rows").children){
     if(tr.classList.contains("sec")){flush();sec=tr;blk=null;ns=0;nb=0}
-    else if(tr.classList.contains("blk")){if(blk)blk.querySelector(".cnt").textContent="（"+nb+"）";blk=tr;nb=0}
+    else if(tr.classList.contains("blk")){if(blk){blk.querySelector(".cnt").textContent=nb?"（"+nb+"）":"（空，可拖到這裡）";blk.classList.toggle("empty",!nb)}blk=tr;nb=0}
     else {ns++;nb++}
   }
   flush();
@@ -338,7 +391,7 @@ function buildFilters(){
   const fill=(sel,vals,keep=1)=>{const cur=sel.value;sel.length=keep;for(const v of vals)sel.append(new Option(v,v));sel.value=cur&&[...sel.options].some(o=>o.value===cur)?cur:sel.options[0].value};
   fill($("machineFilter"),options["機台"]||[...new Set([...saved.values()].map(r=>r["機台"]).filter(Boolean))]);
 }
-let rt=null; for(const id of ["q","machineFilter","statusFilter"]) $(id).addEventListener("input",()=>{clearTimeout(rt);limit=400;rt=setTimeout(render,id==="q"?250:0)});
+let rt=null; for(const id of ["q","machineFilter","statusFilter"]) $(id).addEventListener("input",()=>{clearTimeout(rt);limit=400;rt=setTimeout(refresh,id==="q"?250:0)});
 $("moreBtn").onclick=()=>{limit+=200;render()};
 $("reloadBtn").onclick=()=>start(true);
 
@@ -364,7 +417,7 @@ async function saveRow(tr){
   if(!res){setStatus(td,"bad","⚠ 沒存成功");const b=document.createElement("button");b.className="btn btn-mini";b.textContent="重試";b.onclick=()=>schedule(tr);td.append(" ",b);return}
   const before=saved.get(no)?.["機台"]||"";
   applySaved(tr,res.row);
-  if((res.row["機台"]||"")!==before) render();            // the row now belongs to another machine block
+  if((res.row["機台"]||"")!==before) refresh();           // the row now belongs to another machine block
 }
 function applySaved(tr,row){
   const no=tr.dataset.no, td=statusCell(tr);
@@ -385,7 +438,7 @@ $("rows").addEventListener("click",async e=>{
   const res=await post({action:"remove",no}); if(!res) return;
   saved.delete(no); const tr=e.target.closest("tr"); const r=allRows().find(x=>x.no===no);
   if(r) tr.replaceWith(buildRow(r)); else tr.remove();
-  render(); say("已清除 "+no,"ok");
+  refresh(); say("已清除 "+no,"ok");
 });
 // ---- sections and blocks: [section bar][machine block][rows ...] ... [等待安排][rows ...] ----
 const hdrAbove=tr=>{let h=tr.previousElementSibling;while(h&&h.dataset.no)h=h.previousElementSibling;return h};
@@ -479,6 +532,165 @@ $("rows").addEventListener("click",e=>{                      // arrows move a ro
   tr.parentNode.insertBefore(tr,d<0?sib:sib.nextSibling); placeRow(tr);
   tr.querySelector(`[data-move="${d}"]`)?.focus();
 });
+// ---- view switch: board (default) or table; both read the same rows ----
+let view=store.get("view","board");
+function refresh(){
+  $("board").hidden=view!=="board"; $("tableView").hidden=view!=="table"; $("boardNote").hidden=view!=="board"; $("tableNote").hidden=view!=="table";
+  $("vBoard").setAttribute("aria-pressed",view==="board"); $("vTable").setAttribute("aria-pressed",view==="table");
+  if(view==="board"){renderBoard();$("moreBtn").hidden=true} else render();
+}
+$("vBoard").onclick=()=>{view="board";store.set("view",view);refresh()};
+$("vTable").onclick=()=>{view="table";store.set("view",view);refresh()};
+
+// ---- board: [section] → lanes (等待安排 first, then the line's machines) → cards ----
+const el=(tag,cls,text)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e};
+function laneNames(secId,rs){
+  const order=options["機台"]||[], rank=m=>{const i=order.indexOf(m);return i<0?1e6:i};
+  const names=new Set(rs.map(r=>r.saved?.["機台"]).filter(Boolean)); for(const m of order) if(MACHINES[secId].test(m)) names.add(m);
+  return ["",...[...names].sort((x,y)=>rank(x)-rank(y)||x.localeCompare(y))];
+}
+function cardOf(r){
+  const s=r.saved||{}, p=r.plan||{};
+  const c=el("div","card"); c.dataset.no=r.no; c.tabIndex=0; c.setAttribute("role","button");
+  if(isDone(r.plan,r.saved)) c.classList.add("done"); if(s["進度說明"]==="作業中") c.classList.add("working");
+  const top=el("div","top"); top.append(el("span","no",r.no));
+  const tags=el("span"); if(p.rework) tags.append(el("span","tag rw","重工")); if(s["進度說明"]) tags.append(" ",el("span","tag",s["進度說明"])); top.append(tags);
+  const name=p.name||s["產品名稱"]||""; const nm=el("div","nm",name); nm.title=name;
+  const bits=[(p.qty??s["數量"]??"")+" "+(p.unit??s["單位"]??"")];
+  if(s["預計完工日"]) bits.push("預計 "+s["預計完工日"]+(s["天/時"]||""));
+  if(p.arrive) bits.push("到料 "+p.arrive);
+  if(p.picked) bits.push("已領料");
+  c.append(top,nm,el("div","meta",bits.filter(x=>x.trim()).join("・")));
+  const ppl=peopleOf(r.saved); if(ppl.length){const pp=el("div","pp");for(const n of ppl)pp.append(el("span",null,n));c.append(pp)}
+  return c;
+}
+function renderBoard(){
+  const rows=visibleRows(), board=$("board"); board.textContent=""; viewList.length=0; viewList.push(...rows);
+  const bySec=new Map(SECTIONS.map(x=>[x.id,[]]));
+  for(const r of rows) (bySec.get(sectionOf(r))||bySec.get("mix")).push(r);
+  for(const sec of SECTIONS){
+    const rs=bySec.get(sec.id), box=el("section","bsec");
+    const h=el("button","bsec-h"); h.dataset.sec=sec.id; h.setAttribute("aria-expanded",!collapsed.has(sec.id));
+    h.append(el("span",null,collapsed.has(sec.id)?"▸":"▾"),el("span",null,sec.name),el("span","cnt","（"+rs.length+"）"));
+    box.append(h);
+    if(!collapsed.has(sec.id)){
+      const lanes=el("div","lanes");
+      for(const m of laneNames(sec.id,rs)){
+        const mine=rs.filter(r=>(r.saved?.["機台"]||"")===m);
+        const lane=el("div","lane"+(m?"":" wait")), lh=el("div","lane-h");
+        lh.append(el("span",null,m||WAIT),el("span","cnt",String(mine.length))); lane.append(lh);
+        const list=el("div","cards"); list.dataset.sec=sec.id; list.dataset.mach=m;
+        list.append(el("div","hint",m?"拖到這裡排給 "+m:"還沒排機台的單"));
+        for(const r of mine) list.append(cardOf(r));
+        lane.append(list); lanes.append(lane);
+      }
+      box.append(lanes);
+    }
+    board.append(box);
+  }
+  $("summary").textContent="符合 "+rows.length+" 張・計畫單平台（五股廠）共 "+orders.length+" 張・已填 "+saved.size+" 張";
+}
+$("board").addEventListener("click",e=>{
+  const h=e.target.closest(".bsec-h"); if(!h) return;
+  const id=h.dataset.sec; collapsed.has(id)?collapsed.delete(id):collapsed.add(id); store.set("collapsed",[...collapsed]); renderBoard();
+});
+$("board").addEventListener("keydown",e=>{const c=e.target.closest?.(".card"); if(c&&(e.key==="Enter"||e.key===" ")){e.preventDefault();openEditor(c.dataset.no)}});
+
+// Save a few fields of one work order (other fields stay as they are on the server).
+function saveFields(no,fields){
+  pending.add(no);
+  const p=queue.then(()=>post({action:"save",row:{工令單號:no,...fields}}));
+  queue=p.catch(()=>{});
+  return p.then(res=>{if(res) saved.set(no,res.row); return res}).finally(()=>pending.delete(no));
+}
+
+// Card drag: press and move to pick a card up (a plain click opens it). The card follows the pointer and a
+// dashed gap shows where it will land; lanes and the page scroll when the pointer nears an edge.
+let cd=null;
+$("board").addEventListener("pointerdown",e=>{
+  const c=e.target.closest(".card"); if(!c||e.button>0) return;
+  cd={card:c,sx:e.clientX,sy:e.clientY,x:e.clientX,y:e.clientY,on:false,parent:c.parentNode,next:c.nextElementSibling,raf:0};
+  window.addEventListener("pointermove",cardMove); window.addEventListener("pointerup",cardUp); window.addEventListener("pointercancel",cardUp);
+});
+function cardMove(e){
+  if(!cd) return; cd.x=e.clientX; cd.y=e.clientY;
+  if(!cd.on){ if(Math.hypot(cd.x-cd.sx,cd.y-cd.sy)<6) return;
+    const b=cd.card.getBoundingClientRect(); cd.ox=cd.sx-b.left; cd.oy=cd.sy-b.top;
+    cd.ghost=cd.card.cloneNode(true); cd.ghost.classList.add("ghost"); cd.ghost.style.width=b.width+"px"; document.body.append(cd.ghost);
+    cd.card.classList.add("ph"); document.body.classList.add("dragging-rows"); cd.on=true; edgeScroll();
+  }
+  e.preventDefault(); cd.ghost.style.left=(cd.x-cd.ox)+"px"; cd.ghost.style.top=(cd.y-cd.oy)+"px"; placeGap();
+}
+function placeGap(){
+  const under=document.elementFromPoint(cd.x,cd.y); const list=under?.closest(".cards")||under?.closest(".lane")?.querySelector(".cards"); if(!list) return;
+  let before=null; for(const c of list.querySelectorAll(".card:not(.ph)")){const b=c.getBoundingClientRect(); if(cd.y<b.top+b.height/2){before=c;break}}
+  if(before){if(cd.card.nextElementSibling!==before) list.insertBefore(cd.card,before)} else if(list.lastElementChild!==cd.card) list.append(cd.card);
+}
+function edgeScroll(){
+  if(!cd||!cd.on) return;
+  const lanes=document.elementFromPoint(cd.x,cd.y)?.closest(".lanes");
+  if(lanes){const r=lanes.getBoundingClientRect(); if(cd.x<r.left+60) lanes.scrollLeft-=14; else if(cd.x>r.right-60) lanes.scrollLeft+=14}
+  if(cd.y<70) window.scrollBy(0,-14); else if(cd.y>innerHeight-70) window.scrollBy(0,14);
+  placeGap(); cd.raf=requestAnimationFrame(edgeScroll);
+}
+function cardUp(){
+  const d=cd; cd=null; if(!d) return;
+  window.removeEventListener("pointermove",cardMove); window.removeEventListener("pointerup",cardUp); window.removeEventListener("pointercancel",cardUp);
+  if(!d.on){openEditor(d.card.dataset.no);return}
+  cancelAnimationFrame(d.raf); d.ghost.remove(); d.card.classList.remove("ph"); document.body.classList.remove("dragging-rows");
+  if(d.card.parentNode===d.parent&&d.card.nextElementSibling===d.next) return;
+  dropCard(d.card);
+}
+async function dropCard(c){
+  const list=c.parentNode, sec=list.dataset.sec, mach=list.dataset.mach||"", no=c.dataset.no, r=allRows().find(x=>x.no===no);
+  const sib=n=>n&&n.classList.contains("card")?n:null, prev=sib(c.previousElementSibling), next=sib(c.nextElementSibling);
+  const kp=prev?keyOf.get(prev.dataset.no):null, kn=next?keyOf.get(next.dataset.no):null;
+  let k=keyOf.get(no);
+  if(kp!=null&&kn!=null) k=(kp+kn)/2; else if(kp!=null) k=kp+1000; else if(kn!=null) k=kn-1000;
+  k=Math.round(k*1e6)/1e6;
+  const fields={};
+  if((kp!=null&&k<=kp)||(kn!=null&&k>=kn)){                 // no room between the neighbours: renumber this lane
+    const cards=[...list.querySelectorAll(".card")];
+    for(let i=0;i<cards.length;i++){const n=cards[i].dataset.no,v=(i+1)*1000; keyOf.set(n,v); if(n!==no) saveFields(n,{排序:String(v)})}
+    k=keyOf.get(no);
+  }
+  fields["排序"]=String(k);
+  if(r&&sectionOf(r)!==sec) fields["分區"]=sec;
+  if((r?.saved?.["機台"]||"")!==mach) fields["機台"]=mach;
+  keyOf.set(no,k);
+  const res=await saveFields(no,fields);
+  if(!res) say("順序沒存成功，請重新讀取後再試。");
+  renderBoard();
+}
+
+// ---- card editor: every hand-filled field of one work order; saves itself like the table ----
+function openEditor(no){
+  const r=allRows().find(x=>x.no===no); if(!r) return;
+  const p=r.plan||{}, s=r.saved||{};
+  const wrap=el("div","editor"), box=el("div","ed-box"); box.setAttribute("role","dialog"); box.setAttribute("aria-modal","true");
+  const head=el("div","ed-head"), title=el("div");
+  title.append(el("h2","mono",no),el("div",null,p.name||s["產品名稱"]||""));
+  const close=el("button","btn","關閉"); head.append(title,close); box.append(head);
+  const info=el("div","ed-info"), item=(k,v)=>{const d=el("div");d.append(el("span",null,k),v||"—");info.append(d)};
+  item("數量",(p.qty??s["數量"]??"")+" "+(p.unit??s["單位"]??"")); item("產品編號",p.code||s["產品編號"]); item("交期",p.due);
+  item("到料時間",p.arrive); item("領料單號",p.pickNo); item("領料",p.picked?"✔ 已領料":"未領料"); item("工令完工",p.done?"✔ 完工":"未完工");
+  if(p.parent) item("上階工單",p.parent); item("半成品完工",/^(TRUE|是)$/i.test(p.semi||"")?"✔":"");
+  box.append(info);
+  const grid=el("div","ed-grid");
+  for(const c of COLS){ if(!c.k) continue; const lab=el("label"); lab.append(c.label||c.k, makeInput(c,r)); grid.append(lab) }
+  const status=el("div","status"); box.append(grid,status);
+  wrap.append(box); document.body.append(wrap);
+  grid.querySelector("select,input")?.focus();
+  let t=null;
+  grid.addEventListener("change",()=>{
+    status.className="status"; status.textContent="…等待儲存"; clearTimeout(t);
+    t=setTimeout(async()=>{status.textContent="儲存中…"; const res=await saveFields(no,collect(grid));
+      if(res){status.className="status good"; status.textContent="✓ 已存 "+res.row["更新時間"].slice(5,16)} else {status.className="status bad"; status.textContent="⚠ 沒存成功"}},400);
+  });
+  const done=()=>{wrap.remove(); document.removeEventListener("keydown",esc); refresh()};
+  const esc=e=>{if(e.key==="Escape") done()};
+  close.onclick=done; wrap.addEventListener("click",e=>{if(e.target===wrap) done()}); document.addEventListener("keydown",esc);
+}
 window.addEventListener("beforeunload",e=>{if(pending.size) e.preventDefault()});   // do not lose edits that are still waiting to be saved
 
 async function start(fresh){
@@ -489,7 +701,7 @@ async function start(fresh){
   if(!o||!b) return;
   say(""); options=o.options||{}; if(options["機台"]) options["機台"]=options["機台"].filter(m=>!CAPSULE.test(m)); orders=b.orders||[]; planOf=new Map(orders.map(o=>[o.no,o])); saved=new Map((b.rows||[]).map(r=>[r["工令單號"],r]));
   if(!Object.keys(options).length) say("下拉選項讀不到：請在 Apps Script 指令碼屬性加上 BKE_SHEET_ID。目前下拉欄位先用手打。");
-  buildHead(); buildFilters(); $("listPanel").hidden=false; render();
+  buildHead(); buildFilters(); $("listPanel").hidden=false; refresh();
 }
 start();
 if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});

@@ -8,8 +8,9 @@
  * 手機 App：送來一個工令單號，只回傳四項（工令單號、產品名稱、產品編號、數量＋單位）。
  * 電腦表單（form.html）：用同一組工廠密碼，另外提供
  *   action=options  讀「BKE在途工單」的「選單」分頁，回傳下拉選項（含員工名字，所以不放在公開網頁裡）
- *   action=list     列出已存的生產組資料
- *   save / remove   新增、修改、刪除一筆（POST）
+ *   action=board    一次回傳訂單計畫單的全部工令單，加上已填的生產組資料（表格畫面用）
+ *   action=list     只列出已填的生產組資料
+ *   save / remove   以工令單號為鍵，存入或清除一張單的填寫內容（POST）
  * 資料存在這個帳號自己 Google 雲端的「五股廠生產組表單」試算表，第一次存檔時自動建立。
  *
  * 必要設定（專案設定 → 指令碼屬性）：PIN（工廠密碼）、SHEET_ID（訂單計畫單所在試算表）、
@@ -18,7 +19,7 @@
 const CONFIG = {
   // 只讀這個工作表；留空＝自動找出所有含「工令單號」標題的工作表。
   SHEET_NAME: '訂單計畫單(NEW)',
-  HEADERS: { no: '工令單號', name: '產品名稱', code: '產品編號', qty: '數量', unit: '單位' },
+  HEADERS: { no: '工令單號', name: '產品名稱', code: '產品編號', qty: '數量', unit: '單位', item: '品項', arrive: '預計料齊到倉庫日' },
   HEADER_SEARCH_ROWS: 10,
   CACHE_SECONDS: 300, // 試算表改了之後，最多 5 分鐘內會反映到 App
 };
@@ -30,20 +31,25 @@ function doGet(e) {
   if (bad) return bad;
   if (p.action === 'options') return json_({ ok: true, options: options_() });
   if (p.action === 'list') return json_({ ok: true, rows: list_() });
+  if (p.action === 'board') {
+    const idx = index_();
+    return json_({ ok: true, orders: Object.keys(idx).map(k => idx[k]), rows: list_() });
+  }
   const no = String(p.no || '').trim().toUpperCase();
   if (!/^[A-Z]\d{10}$/.test(no)) return json_({ ok: false, error: 'bad_format' });
-  const order = index_()[no];
-  return json_(order ? { ok: true, order } : { ok: false, error: 'not_found' });
+  const o = index_()[no];
+  // 手機 App 只拿得到這四項（加重工標記），其餘欄位只給表格畫面（action=board）
+  return json_(o ? { ok: true, order: { no: o.no, name: o.name, code: o.code, qty: o.qty, unit: o.unit, rework: o.rework } } : { ok: false, error: 'not_found' });
 }
 
-// 寫入一律用 POST（本文是 JSON 文字）：{ action:'save'|'remove', pin, row | id }
+// 寫入一律用 POST（本文是 JSON 文字）：{ action:'save', pin, row:{工令單號,...} } 或 { action:'remove', pin, no }
 function doPost(e) {
   let p;
   try { p = JSON.parse((e && e.postData && e.postData.contents) || '{}'); } catch (err) { return json_({ ok: false, error: 'bad_request' }); }
   const bad = auth_(p);
   if (bad) return bad;
   if (p.action === 'save') return json_(save_(p.row || {}));
-  if (p.action === 'remove') return json_(remove_(String(p.id || '')));
+  if (p.action === 'remove') return json_(remove_(String(p.no || '').trim().toUpperCase()));
   return json_({ ok: false, error: 'bad_request' });
 }
 
@@ -57,9 +63,29 @@ function auth_(p) {
   return null;
 }
 
-function index_() {
+// 快取單筆上限約 100KB，全部工令單放不下，所以切段存放。
+function cachePut_(key, text) {
   const cache = CacheService.getScriptCache();
-  const hit = cache.get('idx');
+  const size = 30000, n = Math.ceil(text.length / size);
+  const all = { [key + '_n']: String(n) };
+  for (let i = 0; i < n; i++) all[key + '_' + i] = text.slice(i * size, (i + 1) * size);
+  try { cache.putAll(all, CONFIG.CACHE_SECONDS); } catch (err) { /* 放不進去就每次直接讀表 */ }
+}
+function cacheGet_(key) {
+  const cache = CacheService.getScriptCache();
+  const n = Number(cache.get(key + '_n') || 0);
+  if (!n) return null;
+  let text = '';
+  for (let i = 0; i < n; i++) {
+    const part = cache.get(key + '_' + i);
+    if (part == null) return null;
+    text += part;
+  }
+  return text;
+}
+
+function index_() {
+  const hit = cacheGet_('idx');
   if (hit) return JSON.parse(hit);
 
   const sheetId = PropertiesService.getScriptProperties().getProperty('SHEET_ID');
@@ -82,12 +108,14 @@ function index_() {
         code: codeCell.replace(/^重工\s*-?\s*/, '').trim(),
         qty: h.col.qty >= 0 ? String(row[h.col.qty] || '').trim() : '',
         unit: h.col.unit >= 0 ? String(row[h.col.unit] || '').trim() : '',
+        item: h.col.item >= 0 ? String(row[h.col.item] || '').trim() : '',
+        arrive: h.col.arrive >= 0 ? String(row[h.col.arrive] || '').trim() : '',
         rework,
       };
       nos.forEach(no => { idx[no] = Object.assign({ no }, order); });
     }
   });
-  try { cache.put('idx', JSON.stringify(idx), CONFIG.CACHE_SECONDS); } catch (err) { /* 太大放不進快取時，每次直接讀表 */ }
+  cachePut_('idx', JSON.stringify(idx));
   return idx;
 }
 
@@ -152,16 +180,13 @@ function save_(row) {
     const data = sh.getDataRange().getDisplayValues();
     const no = String(row['工令單號'] || '').trim().toUpperCase();
     if (!/^[A-Z]\d{10}$/.test(no)) return { ok: false, error: 'bad_format' };
-    const id = String(row.id || '');
+    const noCol = DB_HEAD.indexOf('工令單號');
     let at = -1;
-    if (id) {
-      for (let i = 1; i < data.length; i++) if (data[i][0] === id) { at = i; break; }
-      if (at < 0) return { ok: false, error: 'row_missing' };
-    }
+    for (let i = 1; i < data.length; i++) if (data[i][noCol] === no) { at = i; break; }
     const old = at >= 0 ? data[at] : null;
     const order = index_()[no];
-    // 新增的單一定要查得到；修改舊紀錄時，單號沒變就算單已移到完工分頁也能改
-    if (!order && !(old && old[DB_HEAD.indexOf('工令單號')] === no)) return { ok: false, error: 'not_found' };
+    // 新的單一定要在訂單計畫單查得到；已存過的單，就算已移到完工分頁也能繼續改
+    if (!order && !old) return { ok: false, error: 'not_found' };
     const now = Utilities.formatDate(new Date(), DB.TZ, 'yyyy-MM-dd HH:mm:ss');
     const out = DB_HEAD.map((h, i) => {
       if (h === 'id') return old ? old[0] : Utilities.getUuid();
@@ -172,6 +197,9 @@ function save_(row) {
       if (Object.prototype.hasOwnProperty.call(row, h)) return String(row[h] == null ? '' : row[h]).slice(0, 500);
       return old ? old[i] : '';
     });
+    // 人數＝選了幾位作業人員
+    const people = [1, 2, 3, 4].filter(n => String(out[DB_HEAD.indexOf('作業人員' + n)] || '').trim()).length;
+    out[DB_HEAD.indexOf('人數')] = people ? String(people) : '';
     const target = at >= 0 ? at + 1 : data.length + 1;
     if (target > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), 200);
     const range = sh.getRange(target, 1, 1, DB_HEAD.length);
@@ -183,14 +211,16 @@ function save_(row) {
   }
 }
 
-function remove_(id) {
+// 清除一張單的填寫內容（訂單計畫單那邊不受影響）
+function remove_(no) {
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
     const sh = db_();
     const data = sh.getDataRange().getDisplayValues();
+    const noCol = DB_HEAD.indexOf('工令單號');
     for (let i = 1; i < data.length; i++) {
-      if (data[i][0] === id) { sh.deleteRow(i + 1); return { ok: true }; }
+      if (data[i][noCol] === no) { sh.deleteRow(i + 1); return { ok: true }; }
     }
     return { ok: false, error: 'row_missing' };
   } finally {

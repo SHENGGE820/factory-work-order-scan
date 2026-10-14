@@ -141,7 +141,7 @@ const COLS = [
   {k:"作業時間", t:"text"},
   {k:"出貨點", t:"text", list:["出貨客戶","五股包裝"]},
   {id:"parent", label:"上階工單", auto:true, mono:true},
-  {id:"semi", label:"半成品完工", auto:true},
+  {id:"semi", label:"半成品完工", auto:true, check:true},
   {id:"code", label:"產品編號", auto:true, mono:true},
   {k:"備註", t:"text", wide:true},
   {id:"status", label:"狀態"},
@@ -237,7 +237,8 @@ function buildRow(r){
     else if(c.id==="qty"){td.textContent=qty.trim();td.style.textAlign="right"}
     else if(c.id==="item") td.textContent=r.plan?.item||"";
     else if(c.id==="code"){td.className+=" mono";td.textContent=code}
-    else if(c.id==="picked"||c.id==="doneFlag"){td.className+=" chk";td.textContent=(c.id==="picked"?r.plan?.picked:r.plan?.done)?"✔":""}
+    else if(c.id==="picked"||c.id==="doneFlag"||c.id==="semi"){td.className+=" chk";   // checkboxes in 計畫單平台: show ✔ when ticked, blank otherwise
+      td.textContent=(c.id==="picked"?r.plan?.picked:c.id==="doneFlag"?r.plan?.done:/^(TRUE|是|✔|V)$/i.test(r.plan?.semi||""))?"✔":""}
     else if(c.auto&&c.id!=="people"&&c.id!=="status"){td.textContent=r.plan?.[c.id]||"";if(c.mono)td.className+=" mono"}
     else if(c.id==="people"){td.dataset.people="1";td.style.textAlign="center";td.textContent=peopleOf(r.saved).length||""}
     else if(c.id==="status"){td.className+=" status";setStatus(td,r.saved?"good":"",r.saved?"✓ 已存 "+r.saved["更新時間"].slice(5,16):"");

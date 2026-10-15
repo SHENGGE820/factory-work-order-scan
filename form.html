@@ -56,10 +56,7 @@ th.s0,th.s1{z-index:4}
 .grip{touch-action:none}
 tr.sec td{background:#000;color:#fff;font-size:16px;font-weight:700;padding:8px 14px;cursor:pointer;border-right:0}
 tr.sec .lab{position:sticky;left:14px;display:inline-block}
-tr.sec .cnt,tr.blk .cnt{font-weight:400;opacity:.75;font-size:13px}
-tr.blk td{background:var(--bg);color:var(--ink);font-size:13px;font-weight:700;padding:4px 14px;border-right:0}
-tr.blk .lab{position:sticky;left:14px;display:inline-block}
-tr.blk.wait td{background:rgba(196,58,47,.12);color:var(--stop)}
+tr.sec .cnt{font-weight:400;opacity:.75;font-size:13px}
 tr.lifted{position:relative;z-index:6}
 tr.lifted td{box-shadow:0 8px 16px rgba(0,0,0,.28);border-top:1px solid var(--accent);border-bottom:1px solid var(--accent)}
 body.dragging-rows{cursor:grabbing;user-select:none}
@@ -79,17 +76,7 @@ td.chk{text-align:center}
 tr:hover .status .btn-mini{visibility:visible}
 .status.bad{color:var(--stop);font-weight:700}
 .status.good{color:var(--go)}
-/* table view, tidier: machine blocks are labels, empty ones are thin drop lines */
-tr.blk .lab{background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:1px 12px}
-tr.blk.wait .lab{background:transparent;border-color:var(--stop)}
-tr.blk.empty:not(.wait){display:none}
-body.dragging-rows tr.blk.empty,tr.blk.empty.show{display:table-row}
-tr.blk.empty td{padding:1px 14px;font-weight:400;color:var(--muted)}
 tr.sec.empty td{background:var(--bg);color:var(--muted);font-size:14px;padding:5px 14px}
-tr.blk.in-empty{display:none!important}
-body.dragging-rows tr.blk.in-empty.wait{display:table-row!important}
-.spare{all:unset;cursor:pointer;margin-left:14px;font-size:12px;font-weight:400;opacity:.8;text-decoration:underline}
-tr.blk.empty .lab{opacity:.7}
 </style>
 </head>
 <body>
@@ -117,7 +104,7 @@ tr.blk.empty .lab{opacity:.7}
       <button class="btn" id="reloadBtn">重新讀取</button>
       <span class="note" id="summary"></span>
     </div>
-    <p class="note" id="tableNote"><span class="legend">淺藍底</span> 是計畫單平台帶過來的，不用填。其他格子直接點了填，會自動存。按住最左邊 ⠿ 上下拖可以排順序；拖到別的機台就換機台、拖到「等待安排」就清掉機台、拖到別的大分類標題就換分類。</p>
+    <p class="note" id="tableNote"><span class="legend">淺藍底</span> 是計畫單平台帶過來的，不用填。其他格子直接點了填，會自動存。按住最左邊 ⠿ 上下拖可以排順序，拖到別的大分類底下就換分類；機台直接在「機台」欄選。</p>
     <div class="tablewrap" id="tableView">
       <table>
         <thead><tr id="head"></tr></thead>
@@ -214,10 +201,8 @@ const peopleOf = r => [1,2,3,4].map(i=>r?.["作業人員"+i]).filter(Boolean);
 // Big sections of the 五股廠(生產組) sheet = the line an order runs on. A product's mixing order sits next to its packing order.
 // 加大型 starts empty: people drag rows into it. Capsule lines are a separate project and stay hidden.
 const SECTIONS=[{id:"std",name:"標準型粉包機 5台"},{id:"big",name:"加大型粉包機 1台"},{id:"mix",name:"混料"}];
-const WAIT="等待安排";
-const MACHINES={std:/小粉包機|混料/,big:/大粉包機|混料/,mix:/混料/};   // which machines get a block (even when empty) in each section
 const POWDER=["4三面封粉包","4粉包"];
-let collapsed=new Set(store.get("collapsed",[])); const showSpare=new Set();
+let collapsed=new Set(store.get("collapsed",[]));
 function defaultSection(r){
   const item=r.plan?.item||"";
   if(CAPSULE.test(item)) return "capsule";
@@ -311,27 +296,12 @@ function render(){
   const rows=visibleRows(), body=$("rows"); body.textContent=""; viewList.length=0; viewList.push(...rows);
   const shown=rows.slice(0,limit), bySec=new Map(SECTIONS.map(x=>[x.id,[]]));
   for(const r of shown) (bySec.get(sectionOf(r))||bySec.get("mix")).push(r);
-  const order=options["機台"]||[], rank=m=>{const i=order.indexOf(m);return i<0?1e6:i};
   const frag=document.createDocumentFragment();
   for(const sec of SECTIONS){
-    const rs=bySec.get(sec.id), blocks=new Map();
-    for(const r of rs){const m=r.saved?.["機台"]||""; if(!blocks.has(m)) blocks.set(m,[]); blocks.get(m).push(r)}
     frag.append(headerRow("sec",sec.id,null,sec.name));
-    // every machine of this line gets a block, even when nothing is scheduled on it yet, so there is somewhere to drop a row
-    const names=new Set([...blocks.keys()].filter(Boolean)); for(const m of order) if(MACHINES[sec.id].test(m)) names.add(m);
-    for(const m of [...names].sort((x,y)=>rank(x)-rank(y)||x.localeCompare(y))){
-      frag.append(headerRow("blk",sec.id,m,"機台："+m)); for(const r of blocks.get(m)||[]) frag.append(rowIn(r,sec.id));
-    }
-    frag.append(headerRow("blk wait",sec.id,"",WAIT)); for(const r of blocks.get("")||[]) frag.append(rowIn(r,sec.id));
+    for(const r of bySec.get(sec.id)) frag.append(rowIn(r,sec.id));
   }
   body.append(frag); applyCollapsed(); refreshCounts();
-  const emptySec=new Set([...body.querySelectorAll("tr.sec.empty")].map(t=>t.dataset.sec));   // a section with no rows is just its title
-  for(const tr of body.querySelectorAll("tr.blk")){tr.classList.toggle("show",showSpare.has(tr.dataset.sec));tr.classList.toggle("in-empty",emptySec.has(tr.dataset.sec))}
-  for(const tr of body.querySelectorAll("tr.sec:not(.empty)")){             // a link on each section bar to show or hide its empty machines
-    const n=body.querySelectorAll(`tr.blk.empty:not(.wait)[data-sec="${tr.dataset.sec}"]`).length; if(!n) continue;
-    const b=document.createElement("button"); b.className="spare"; b.dataset.spare=tr.dataset.sec;
-    b.textContent=showSpare.has(tr.dataset.sec)?"收起空的機台":"顯示空的機台（"+n+"）"; tr.querySelector(".lab").append(b);
-  }
   $("summary").textContent="顯示 "+Math.min(limit,rows.length)+" / 符合 "+rows.length+" 張・計畫單平台（五股廠）共 "+orders.length+" 張・已填 "+saved.size+" 張";
   $("moreBtn").hidden=rows.length<=limit; $("moreBtn").textContent="顯示更多（還有 "+(rows.length-limit)+" 張）";
 }
@@ -341,14 +311,10 @@ function applyCollapsed(){
     else tr.hidden=collapsed.has(tr.dataset.sec);
   }
 }
-function refreshCounts(){                                   // numbers on the section and block headers
-  let sec=null, blk=null, ns=0, nb=0;
-  const flush=()=>{if(sec){sec.querySelector(".cnt").textContent="（"+ns+"）";sec.classList.toggle("empty",!ns)} if(blk){blk.querySelector(".cnt").textContent=nb?"（"+nb+"）":"（空，可拖到這裡）";blk.classList.toggle("empty",!nb)}};
-  for(const tr of $("rows").children){
-    if(tr.classList.contains("sec")){flush();sec=tr;blk=null;ns=0;nb=0}
-    else if(tr.classList.contains("blk")){if(blk){blk.querySelector(".cnt").textContent=nb?"（"+nb+"）":"（空，可拖到這裡）";blk.classList.toggle("empty",!nb)}blk=tr;nb=0}
-    else {ns++;nb++}
-  }
+function refreshCounts(){                                   // number of rows on each section bar
+  let sec=null, n=0;
+  const flush=()=>{if(sec){sec.querySelector(".cnt").textContent="（"+n+"）";sec.classList.toggle("empty",!n)}};
+  for(const tr of $("rows").children){ if(tr.classList.contains("sec")){flush();sec=tr;n=0} else n++ }
   flush();
 }
 function buildHead(){
@@ -384,9 +350,7 @@ async function saveRow(tr){
   const no=tr.dataset.no, td=statusCell(tr); setStatus(td,"","儲存中…");
   const res=await post({action:"save",row:{工令單號:no,...collect(tr)}});
   if(!res){setStatus(td,"bad","⚠ 沒存成功");const b=document.createElement("button");b.className="btn btn-mini";b.textContent="重試";b.onclick=()=>schedule(tr);td.append(" ",b);return}
-  const before=saved.get(no)?.["機台"]||"";
   applySaved(tr,res.row);
-  if((res.row["機台"]||"")!==before) refresh();           // the row now belongs to another machine block
 }
 function applySaved(tr,row){
   const no=tr.dataset.no, td=statusCell(tr);
@@ -409,35 +373,27 @@ $("rows").addEventListener("click",async e=>{
   if(r) tr.replaceWith(buildRow(r)); else tr.remove();
   refresh(); say("已清除 "+no,"ok");
 });
-// ---- sections and blocks: [section bar][machine block][rows ...] ... [等待安排][rows ...] ----
+// ---- sections: [section bar][rows ...] ----
 const hdrAbove=tr=>{let h=tr.previousElementSibling;while(h&&h.dataset.no)h=h.previousElementSibling;return h};
 const shown=t=>!t.hidden&&t.getClientRects().length>0;
 const visPrev=tr=>{let p=tr.previousElementSibling;while(p&&!shown(p))p=p.previousElementSibling;return p};
 const visNext=tr=>{let n=tr.nextElementSibling;while(n&&!shown(n))n=n.nextElementSibling;return n};
 $("rows").addEventListener("click",e=>{                       // click a section bar to fold or unfold it
-  const sp=e.target.closest("[data-spare]"); if(sp){e.stopPropagation(); const id=sp.dataset.spare; showSpare.has(id)?showSpare.delete(id):showSpare.add(id); render(); return}
   const bar=e.target.closest("tr.sec"); if(!bar||bar.classList.contains("empty")) return;
   const id=bar.dataset.sec; collapsed.has(id)?collapsed.delete(id):collapsed.add(id);
   store.set("collapsed",[...collapsed]); applyCollapsed();
 });
 // After a row was dropped (or moved with an arrow): work out its block, give it a number between its neighbours,
-// and save the new section / machine together with the new position.
+// and save the new section together with the new position.
 function placeRow(tr){
-  let h=hdrAbove(tr);
-  if(!h||h.classList.contains("sec")){                         // dropped on a section title: into that section's 等待安排
-    const b=h?$("rows").querySelector(`tr.blk.wait[data-sec="${h.dataset.sec}"]`):$("rows").querySelector("tr.blk.wait");
-    if(!b) return; b.after(tr); h=b;
-  }
-  const no=tr.dataset.no, sec=h.dataset.sec, mach=h.dataset.mach||"", oldSec=tr.dataset.sec;
+  let h=hdrAbove(tr); if(!h) return;
+  const no=tr.dataset.no, sec=h.dataset.sec, oldSec=tr.dataset.sec;
   if(collapsed.has(sec)){collapsed.delete(sec);store.set("collapsed",[...collapsed]);applyCollapsed()}
   tr.dataset.sec=sec;
   const prev=tr.previousElementSibling&&tr.previousElementSibling.dataset.no?tr.previousElementSibling:null;
   const next=tr.nextElementSibling&&tr.nextElementSibling.dataset.no?tr.nextElementSibling:null;
   const kp=prev?keyOf.get(prev.dataset.no):null, kn=next?keyOf.get(next.dataset.no):null;
-  const extra={};
-  if(sec!==oldSec) extra["分區"]=sec;
-  const sel=tr.querySelector('[data-k="機台"]'), curM=sel?sel.value:(saved.get(no)?.["機台"]||"");
-  if(mach!==curM){extra["機台"]=mach; if(sel){if(mach&&![...sel.options].some(o=>o.value===mach)) sel.append(new Option(mach,mach)); sel.value=mach}}
+  const extra=sec!==oldSec?{分區:sec}:{};
   let k=keyOf.get(no);
   if(kp!=null&&kn!=null) k=(kp+kn)/2; else if(kp!=null) k=kp+1000; else if(kn!=null) k=kn-1000;
   k=Math.round(k*1e6)/1e6;
@@ -448,13 +404,13 @@ function queueOrder(tr,k,extra={}){
   const no=tr.dataset.no; setStatus(statusCell(tr),"","儲存順序…"); pending.add(no);
   queue=queue.then(async()=>{
     const res=await post({action:"save",row:{工令單號:no,排序:String(k),...extra}});
-    if(res){applySaved(tr,res.row); if("分區" in extra||"機台" in extra) render()}   // section headers and empty blocks follow the move
+    if(res) applySaved(tr,res.row);
     else setStatus(statusCell(tr),"bad","⚠ 順序沒存成功");
   }).finally(()=>pending.delete(no));
 }
-function renumber(tr){                                          // give the whole block fresh, evenly spaced numbers
+function renumber(tr){                                          // give the whole section fresh, evenly spaced numbers
   const run=[]; for(let r=hdrAbove(tr).nextElementSibling; r&&r.dataset.no; r=r.nextElementSibling) run.push(r);
-  run.forEach((r,i)=>{const k=(i+1)*1000; keyOf.set(r.dataset.no,k); queueOrder(r,k,r===tr?{分區:tr.dataset.sec,機台:hdrAbove(tr).dataset.mach||""}:{})});
+  run.forEach((r,i)=>{const k=(i+1)*1000; keyOf.set(r.dataset.no,k); queueOrder(r,k,r===tr?{分區:tr.dataset.sec}:{})});
 }
 // Real drag: the row lifts and follows the pointer while the other rows move out of its way; letting go drops it there.
 let drag=null;

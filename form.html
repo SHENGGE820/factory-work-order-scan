@@ -58,7 +58,9 @@ tr.sec td{background:#000;color:#fff;font-size:16px;font-weight:700;padding:8px 
 tr.sec .lab{position:sticky;left:14px;display:inline-block}
 tr.sec .cnt{font-weight:400;opacity:.75;font-size:13px}
 tr.lifted{position:relative;z-index:6}
-tr.lifted td{box-shadow:0 8px 16px rgba(0,0,0,.28);border-top:1px solid var(--accent);border-bottom:1px solid var(--accent)}
+tr.lifted td{background:var(--surface);box-shadow:0 10px 22px rgba(0,0,0,.22);border-top:1px solid var(--accent);border-bottom:1px solid var(--accent)}
+tr.lifted .grip{color:var(--accent)}
+.grip:hover{color:var(--ink)}
 body.dragging-rows{cursor:grabbing;user-select:none}
 body.dragging-rows *{cursor:grabbing!important}
 tr.saved td.s0{box-shadow:inset 3px 0 0 var(--go)}
@@ -419,21 +421,34 @@ $("rows").addEventListener("pointerdown",e=>{
   e.preventDefault();
   const tr=grip.closest("tr"), box=tr.getBoundingClientRect();
   drag={tr,grab:e.clientY-box.top,y:e.clientY,from:tr.nextElementSibling,scroller:tr.closest(".tablewrap"),raf:0};
-  tr.classList.add("lifted"); document.body.classList.add("dragging-rows");
+  tr.style.transition="none"; tr.classList.add("lifted"); document.body.classList.add("dragging-rows");
   window.addEventListener("pointermove",onDragMove); window.addEventListener("pointerup",onDragEnd); window.addEventListener("pointercancel",onDragEnd);
   followRow(); loopScroll();
 });
 function onDragMove(e){ if(drag){drag.y=e.clientY;followRow()} }
+// Where a row really sits, leaving out the slide it may be in the middle of.
+function layoutBox(t){
+  const r=t.getBoundingClientRect(), tf=getComputedStyle(t).transform;
+  const dy=tf&&tf!=="none"?new DOMMatrixReadOnly(tf).m42:0; return {top:r.top-dy,height:r.height};
+}
+// A neighbour that changed places slides from where it was to its new place instead of jumping.
+function slide(t,fromTop){
+  t.style.transition="none"; t.style.transform="";
+  const d=fromTop-t.getBoundingClientRect().top; if(!d) return;
+  t.style.transform="translateY("+d+"px)"; t.getBoundingClientRect();
+  t.style.transition="transform .16s ease-out"; t.style.transform="";
+}
 function followRow(){
   const tr=drag.tr, top=drag.y-drag.grab;
   tr.style.transform="";                                  // measure where the row sits in the table
   let rect=tr.getBoundingClientRect();
   for(;;){                                                // swap places while the row's centre has passed a neighbour's centre
     const mid=top+rect.height/2, prev=visPrev(tr), next=visNext(tr);
-    const pb=prev&&prev.getBoundingClientRect(), nb=next&&next.getBoundingClientRect();
-    if(prev&&mid<pb.top+pb.height/2) tr.parentNode.insertBefore(tr,prev);
-    else if(next&&mid>nb.top+nb.height/2) tr.parentNode.insertBefore(next,tr);
-    else break;
+    const pb=prev&&layoutBox(prev), nb=next&&layoutBox(next);
+    let sib=null;
+    if(prev&&mid<pb.top+pb.height/2){sib=prev; const was=prev.getBoundingClientRect().top; tr.parentNode.insertBefore(tr,prev); slide(prev,was)}
+    else if(next&&mid>nb.top+nb.height/2){sib=next; const was=next.getBoundingClientRect().top; tr.parentNode.insertBefore(next,tr); slide(next,was)}
+    if(!sib) break;
     rect=tr.getBoundingClientRect();
   }
   tr.style.transform="translateY("+(top-rect.top)+"px)";
@@ -449,7 +464,9 @@ function onDragEnd(){
   if(!drag) return;
   const {tr,from}=drag; cancelAnimationFrame(drag.raf); drag=null;
   window.removeEventListener("pointermove",onDragMove); window.removeEventListener("pointerup",onDragEnd); window.removeEventListener("pointercancel",onDragEnd);
-  tr.style.transform=""; tr.classList.remove("lifted"); document.body.classList.remove("dragging-rows");
+  document.body.classList.remove("dragging-rows");
+  tr.style.transition="transform .14s ease-out"; tr.style.transform="";   // glide into its slot, then put it down
+  setTimeout(()=>{tr.classList.remove("lifted"); tr.style.transition=""},150);
   if(tr.nextElementSibling!==from) placeRow(tr);
 }
 $("rows").addEventListener("click",e=>{                      // arrows move a row one place inside its block

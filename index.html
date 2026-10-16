@@ -30,6 +30,11 @@
 body{margin:0}
 html,body{background:var(--bg);color:var(--ink)}
 body{font-family:var(--font-body);font-size:16px;line-height:1.5;padding-inline:16px;padding-block:12px 40px}
+/* Android app: the page runs edge to edge, so keep clear of the status bar and the gesture bar.
+   Capacitor sets --safe-area-inset-*; browsers use env(). */
+body{padding-top:calc(12px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));padding-bottom:calc(40px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)))}
+/* a large system font must not make anything wider than the screen */
+.wrap>*,main>*{min-width:0}
 .wrap{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
 .mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums;letter-spacing:.02em}
 header{display:flex;flex-direction:column;gap:10px}
@@ -46,6 +51,8 @@ h1{font-size:20px;margin:0;text-wrap:balance}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px}
 .btn{all:unset;box-sizing:border-box;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;min-height:64px;border-radius:12px;font-size:20px;font-weight:700;text-align:center;padding:8px 16px;width:100%}
 .btn-scan{background:var(--accent);color:var(--accent-ink);min-height:96px;font-size:24px}
+.btn-scan{flex-wrap:wrap;row-gap:2px}
+.btn-scan span{white-space:nowrap}   /* with a large system font the label drops under the barcode glyph instead of stacking one character per line */
 .btn-go{background:var(--go);color:#fff}
 .btn-stop{background:var(--stop);color:#fff}
 .btn-ghost{background:transparent;border:1px solid var(--line);color:var(--ink);min-height:48px;font-size:16px;font-weight:600}
@@ -60,7 +67,7 @@ h1{font-size:20px;margin:0;text-wrap:balance}
 .camctl .btn{min-height:48px}
 .photo-link{align-self:center;color:var(--muted);text-decoration:underline;cursor:pointer;font-size:15px;padding:4px}
 .manual{display:flex;gap:8px}
-.manual input{flex:1;min-width:0;font:inherit;font-family:var(--font-mono);font-size:20px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);text-transform:uppercase}
+.manual input{flex:1;min-width:0;width:0;font:inherit;font-family:var(--font-mono);font-size:20px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);text-transform:uppercase}
 .manual .btn{width:auto;min-height:52px;font-size:16px}
 .msg{padding:12px 14px;border-radius:10px;font-weight:600}
 .msg.err{background:var(--warn-bg);color:var(--warn-ink)}

@@ -123,7 +123,7 @@ html.native-scanning body{visibility:hidden}
   <header>
     <div class="top"><h1 id="t-title">工令單掃描</h1><span class="badge" id="t-demo">測試版・假資料</span></div>
     <div class="lang" role="group" aria-label="Language">
-      <button data-lang="zh">中文</button><button data-lang="vi">Tiếng Việt</button><button data-lang="id">Bahasa Indonesia</button><button data-lang="th">ไทย</button>
+      <button data-lang="zh">中文</button><button data-lang="vi">Tiếng Việt</button>
     </div>
     <div class="tabs" role="tablist">
       <button role="tab" id="tab-scan" aria-selected="true" data-t="tabScan">掃描</button>
@@ -279,24 +279,6 @@ const T = {
       phaseStop:"Dừng máy",stop:"Dừng máy",resume:"Tiếp tục làm",reasonAsk:"Lý do dừng máy (chọn một)",allowLoss:"Hao hụt cho phép",usedLoss:"Đã hao hụt",lossAsk:"Số hao hụt khi chuẩn bị",lossHint:"Cộng tất cả: thay cuộn nhôm, thay ruy băng mực, chỉnh máy, rách gói, in, thử nước.",lossSave:"Xác nhận, bắt đầu chạy máy",needLoss:"Hãy nhập số hao hụt (số nguyên, không có thì nhập 0).",overLoss:"Đã vượt mức hao hụt cho phép!",pending:"Chưa gửi",logLive:"Dữ liệu tự động gửi lên; khi không có mạng sẽ lưu trên điện thoại và gửi lại khi có mạng.",loss:"Hao hụt",r_material:"Chờ nguyên liệu",r_breakdown:"Máy hỏng",r_break:"Nghỉ / ăn cơm",r_quality:"Vấn đề chất lượng",r_other:"Khác",inProgress:"Đang làm",min:"phút",
       sheetNote:"Mở trang này trên máy tính, rồi dùng trang “Quét” trên điện thoại để chụp màn hình. Dữ liệu đều là giả.",
       slipNo:"Số lệnh SX",slipQty:"Số lượng"},
-  id:{title:"Pindai Perintah Kerja",demo:"Versi uji・Data palsu",tabScan:"Pindai",tabSheet:"Lembar uji",scan:"Pakai foto saja",live:"Pindai lembar kerja",aim:"Arahkan barcode “工令單號” ke dalam kotak",checking:"Terbaca, sedang mencari… ",torch:"Senter",closeCam:"Tutup kamera",camErr:"Kamera tidak bisa dibuka. Izinkan kamera, atau pakai foto.",tryPhoto:"Tidak terbaca? Tekan “Pakai foto saja” di bawah.",find:"Cari",pinAsk:"Masukkan kata sandi pabrik (cukup sekali)",ok:"OK",badPin:"Kata sandi pabrik salah, masukkan lagi.",netErr:"Tidak bisa terhubung ke data. Periksa internet lalu coba lagi.",live1:"Versi uji",
-      fNo:"No. perintah kerja",fName:"Nama produk",fCode:"Kode produk",fQty:"Jumlah",
-      logNote:"Versi uji: catatan hanya tersimpan di HP ini.",rework:"Pengerjaan ulang",
-      busy:"Membaca…",noCode:"Barcode nomor kerja tidak terbaca. Foto barcode “工令單號” dengan jelas dan lurus, lalu coba lagi.",
-      badFormat:"Ini bukan nomor kerja (1 huruf + 10 angka).",notFound:"Lembar tidak ditemukan: ",
-      records:"Catatan jam kerja",empty:"Belum ada catatan.",phasePrep:"Persiapan",phaseRun:"Kerja mesin",endPrep:"Persiapan selesai, mulai mesin",endRun:"Kerja mesin selesai",doneAsk:"Jumlah selesai",saveEnd:"Konfirmasi, hentikan waktu",back:"Kembali",cancelPrep:"Salah pindai, batalkan",finishFirst:"Masih ada lembar yang sedang dihitung waktunya. Selesaikan dulu sebelum mulai lembar baru.",needQty:"Masukkan jumlah selesai (bilangan bulat).",saved:"Tersimpan. Terima kasih!",done:"Selesai",pcs:"butir",
-      phaseStop:"Mesin berhenti",stop:"Hentikan mesin",resume:"Lanjut kerja",reasonAsk:"Alasan berhenti (pilih satu)",allowLoss:"Batas susut",usedLoss:"Sudah susut",lossAsk:"Jumlah susut saat persiapan",lossHint:"Jumlahkan semua: ganti gulungan aluminium, ganti pita karbon, setel mesin, kemasan sobek, cetak, uji air.",lossSave:"Konfirmasi, mulai mesin",needLoss:"Masukkan jumlah susut (bilangan bulat, isi 0 jika tidak ada).",overLoss:"Sudah melebihi batas susut!",pending:"Belum terkirim",logLive:"Catatan dikirim otomatis; tanpa internet disimpan di HP dan dikirim lagi saat ada internet.",loss:"Susut",r_material:"Menunggu bahan",r_breakdown:"Mesin rusak",r_break:"Istirahat / makan",r_quality:"Masalah kualitas",r_other:"Lainnya",inProgress:"Berjalan",min:"menit",
-      sheetNote:"Buka halaman ini di komputer, lalu foto layar dengan halaman “Pindai” di HP. Semua data palsu.",
-      slipNo:"No. perintah kerja",slipQty:"Jumlah"},
-  th:{title:"สแกนใบสั่งงาน",demo:"ทดลอง・ข้อมูลสมมติ",tabScan:"สแกน",tabSheet:"ใบทดสอบ",scan:"ใช้การถ่ายรูปแทน",live:"สแกนใบสั่งงาน",aim:"เล็งบาร์โค้ด “工令單號” ให้อยู่ในกรอบ",checking:"อ่านได้แล้ว กำลังค้นหา… ",torch:"ไฟฉาย",closeCam:"ปิดกล้อง",camErr:"เปิดกล้องไม่ได้ กรุณาอนุญาตกล้อง หรือใช้การถ่ายรูป",tryPhoto:"สแกนไม่ได้ใช่ไหม กด “ใช้การถ่ายรูปแทน” ด้านล่าง",find:"ค้นหา",pinAsk:"กรอกรหัสผ่านโรงงาน (ครั้งเดียว)",ok:"ตกลง",badPin:"รหัสผ่านโรงงานไม่ถูกต้อง กรุณากรอกใหม่",netErr:"เชื่อมต่อข้อมูลไม่ได้ ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่",live1:"ทดลอง",
-      fNo:"เลขใบสั่งงาน",fName:"ชื่อสินค้า",fCode:"รหัสสินค้า",fQty:"จำนวน",
-      logNote:"ทดลอง: บันทึกเก็บไว้ในโทรศัพท์เครื่องนี้เท่านั้น",rework:"งานแก้ไข",
-      busy:"กำลังอ่าน…",noCode:"อ่านบาร์โค้ดเลขใบสั่งงานไม่ได้ ถ่ายบาร์โค้ด “工令單號” ให้ชัดและตรง แล้วลองใหม่",
-      badFormat:"ไม่ใช่เลขใบสั่งงาน (ตัวอักษร 1 ตัว + ตัวเลข 10 หลัก)",notFound:"ไม่พบใบสั่งงาน: ",
-      records:"บันทึกเวลาทำงาน",empty:"ยังไม่มีบันทึก",phasePrep:"เตรียมงาน",phaseRun:"เดินเครื่อง",endPrep:"เตรียมงานเสร็จ เริ่มเดินเครื่อง",endRun:"เดินเครื่องเสร็จ",doneAsk:"จำนวนที่เสร็จ",saveEnd:"ยืนยัน หยุดจับเวลา",back:"กลับ",cancelPrep:"สแกนผิดใบ ยกเลิก",finishFirst:"ยังมีใบที่กำลังจับเวลาอยู่ กรุณาจบใบนั้นก่อนเริ่มใบใหม่",needQty:"กรุณากรอกจำนวนที่เสร็จ (จำนวนเต็ม)",saved:"บันทึกแล้ว ขอบคุณ!",done:"เสร็จ",pcs:"เม็ด",
-      phaseStop:"หยุดเครื่อง",stop:"หยุดเครื่อง",resume:"ทำงานต่อ",reasonAsk:"สาเหตุที่หยุดเครื่อง (เลือกหนึ่ง)",allowLoss:"สูญเสียได้",usedLoss:"สูญเสียแล้ว",lossAsk:"จำนวนสูญเสียช่วงเตรียมงาน",lossHint:"รวมทั้งหมด: เปลี่ยนม้วนอลูมิเนียม เปลี่ยนริบบอนคาร์บอน ปรับเครื่อง ซองแตก พิมพ์ ทดสอบน้ำ",lossSave:"ยืนยัน เริ่มเดินเครื่อง",needLoss:"กรุณากรอกจำนวนสูญเสีย (จำนวนเต็ม ถ้าไม่มีให้กรอก 0)",overLoss:"เกินจำนวนที่สูญเสียได้แล้ว!",pending:"ยังไม่ส่ง",logLive:"บันทึกจะส่งขึ้นอัตโนมัติ ถ้าไม่มีเน็ตจะเก็บไว้ในโทรศัพท์แล้วส่งเมื่อมีเน็ต",loss:"สูญเสีย",r_material:"รอวัตถุดิบ",r_breakdown:"เครื่องเสีย",r_break:"พัก / กินข้าว",r_quality:"ปัญหาคุณภาพ",r_other:"อื่นๆ",inProgress:"กำลังทำ",min:"นาที",
-      sheetNote:"เปิดหน้านี้บนคอมพิวเตอร์ แล้วใช้หน้า “สแกน” บนโทรศัพท์ถ่ายรูปหน้าจอ ข้อมูลทั้งหมดเป็นข้อมูลสมมติ",
-      slipNo:"เลขใบสั่งงาน",slipQty:"จำนวน"},
 };
 const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
 let lang=store.get("lang","zh"); if(!T[lang]) lang="zh";
@@ -304,7 +286,7 @@ const t=k=>T[lang][k]??T.zh[k];
 const $=id=>document.getElementById(id);
 
 function applyLang(){
-  document.documentElement.lang={zh:"zh-Hant",vi:"vi",id:"id",th:"th"}[lang];
+  document.documentElement.lang={zh:"zh-Hant",vi:"vi"}[lang];
   document.querySelectorAll("[data-t]").forEach(el=>{el.textContent=t(el.dataset.t)});
   $("logNote").textContent=t(DEMO?"logNote":"logLive"); $("lossHint").textContent=t("lossHint");
   renderReasons();

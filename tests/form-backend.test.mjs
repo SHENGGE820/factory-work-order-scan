@@ -231,6 +231,20 @@ assert.equal(post({ action: 'work', seg: { id: 'x', no: 'V1150831005', phase: 'r
 assert.equal(post({ action: 'work', seg: { id: 'x', no: 'V1150831005', phase: 'prep', start: T0, end: T0 + M, loss: -3 } }).error, 'bad_request');
 assert.equal(post({ action: 'work', seg: { id: 'x', no: 'V1150831999', phase: 'run', start: T0, end: T0 + M } }).error, 'not_found');
 
+// manager report: segments of a date range plus the orders they belong to
+let rp = get({ action: 'report', from: '2026-10-14', to: '2026-10-14' });
+assert.equal(rp.ok, true);
+assert.equal(rp.segs.length, 5);
+assert.deepEqual(rp.segs[2], { no: 'V1150831005', phase: 'stop', reason: '等料', start: '2026-10-14 09:00:00', end: '2026-10-14 09:00:00', min: 10, loss: null, done: null, machine: '小粉包機-1', people: ['小明', '小華'] });
+assert.deepEqual(rp.orders.V1150831005, { name: '2M_西洋梨型 裸包 (每包3公克)', code: '4104002200098', qty: 6000, unit: '包', item: '4粉包', lossAll: 50 });
+assert.equal(get({ action: 'report', from: '2026-10-15', to: '2026-10-20' }).segs.length, 0);
+assert.equal(get({ action: 'report', from: 'x', to: '2026-10-20' }).error, 'bad_request');
+assert.equal(f.doGet({ parameter: { action: 'report', pin: 'nope', from: '2026-10-14', to: '2026-10-14' } }).error, 'bad_pin');
+props.MANAGER_PIN = '9999'; // once a manager password is set, the factory password no longer opens the report
+assert.equal(get({ action: 'report', from: '2026-10-14', to: '2026-10-14' }).error, 'bad_pin');
+assert.equal(f.doGet({ parameter: { action: 'report', pin: '9999', from: '2026-10-14', to: '2026-10-14' } }).managerPin, true);
+delete props.MANAGER_PIN;
+
 // staff list for the shared phone
 assert.deepEqual(get({ action: 'people' }).people, ['小明', '小華']);
 assert.deepEqual(get({ action: 'people' }).machines, ['240kg混料', '100kg混料', '小粉包機-1']);

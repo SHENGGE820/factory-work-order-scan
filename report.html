@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>主管報表</title>
+<link rel="icon" href="icons/icon-192.png">
+<style>
+/* Manager report: machines (time split, stops, output, loss), people (hours for pay) and orders, for a date range.
+   Everything is computed in the browser from the 工時紀錄 segments the backend returns (action=report). */
+:root{
+  --bg:#eef1f4; --surface:#ffffff; --ink:#15202b; --muted:#5b6876; --line:#d5dce3; --grid:#e6eaee;
+  --accent:#f2c200; --go:#1d8a4c; --go-bg:#e2f3e9; --stop:#c43a2f; --stop-bg:#fbe4e1; --warn-bg:#fff4cc; --warn-ink:#6b5200;
+  /* chart series: categorical slots 1-3 of the reference palette (上機, 前置, 停機) */
+  --s-run:#2a78d6; --s-prep:#eb6834; --s-stop:#1baf7a;
+  --font-body:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f151b; --surface:#18212a; --ink:#e6ebf0; --muted:#97a4b2; --line:#2c3843; --grid:#222d37;
+  --go:#2fa866; --go-bg:#13301f; --stop:#e05547; --stop-bg:#3a1714; --warn-bg:#3a3110; --warn-ink:#f3dc8a;
+  --s-run:#3987e5; --s-prep:#d95926; --s-stop:#199e70; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f151b; --surface:#18212a; --ink:#e6ebf0; --muted:#97a4b2; --line:#2c3843; --grid:#222d37;
+  --go:#2fa866; --go-bg:#13301f; --stop:#e05547; --stop-bg:#3a1714; --warn-bg:#3a3110; --warn-ink:#f3dc8a;
+  --s-run:#3987e5; --s-prep:#d95926; --s-stop:#199e70; color-scheme:dark}
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;background:var(--bg);color:var(--ink)}
+body{font-family:var(--font-body);font-size:14px;line-height:1.45;padding:12px 16px 40px}
+.wrap{max-width:1280px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+.mono,.num{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+header{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+h1{font-size:22px;margin:0}
+h2{font-size:17px;margin:0}
+a{color:inherit}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.panel-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+input,select{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:4px 8px;min-height:32px}
+input:focus-visible,select:focus-visible,.btn:focus-visible{outline:3px solid var(--accent);outline-offset:1px}
+.btn{cursor:pointer;font:inherit;font-weight:700;border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:8px;padding:5px 14px;min-height:34px}
+.btn-go{background:var(--go);border-color:var(--go);color:#fff}
+.btn-small{font-size:13px;padding:3px 10px;min-height:28px;font-weight:600}
+.tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.note{font-size:13px;color:var(--muted);margin:0}
+.msg{padding:8px 12px;border-radius:8px;font-weight:600}
+.msg.err{background:var(--warn-bg);color:var(--warn-ink)}
+.msg.ok{background:var(--go-bg);color:var(--go)}
+.badge{font-size:12px;padding:2px 8px;border-radius:4px;background:var(--warn-bg);color:var(--warn-ink);font-weight:600}
+/* stat tiles */
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:2px}
+.tile .k{font-size:13px;color:var(--muted)}
+.tile .v{font-size:26px;font-weight:700;font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.tile .s{font-size:12px;color:var(--muted)}
+.tile.bad .v{color:var(--stop)}
+/* time-split chart: one stacked bar per machine */
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:12px;height:12px;border-radius:3px;display:inline-block}
+.bars{display:grid;grid-template-columns:minmax(90px,max-content) 1fr;gap:8px 12px;align-items:center}
+.bars .lab{font-size:13px;font-weight:600;text-align:right;white-space:nowrap}
+.track{display:flex;align-items:center;gap:8px;min-width:0}
+.stack{display:flex;gap:2px;height:20px;min-width:2px}
+.stack b{display:block;height:100%;cursor:default}
+.stack b:first-child{border-radius:4px 0 0 4px}
+.stack b:last-child{border-radius:0 4px 4px 0}
+.stack b:only-child{border-radius:4px}
+.stack b:hover{filter:brightness(1.12)}
+.track .tot{font-size:12px;color:var(--muted);white-space:nowrap}
+.tip{position:fixed;z-index:20;pointer-events:none;background:var(--ink);color:var(--bg);font-size:13px;padding:6px 10px;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.25);white-space:nowrap}
+/* tables */
+.tablewrap{overflow:auto;border:1px solid var(--line);border-radius:8px;max-height:560px}
+table{border-collapse:separate;border-spacing:0;font-size:13px;width:100%}
+th,td{padding:5px 10px;border-bottom:1px solid var(--grid);white-space:nowrap;text-align:left;background:var(--surface)}
+th{position:sticky;top:0;z-index:1;font-size:12px;color:var(--muted);font-weight:600;border-bottom:1px solid var(--line);cursor:pointer;user-select:none}
+th[aria-sort="ascending"]::after{content:" ▲";font-size:10px}
+th[aria-sort="descending"]::after{content:" ▼";font-size:10px}
+td.n,th.n{text-align:right;font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+tr.total td{font-weight:700;border-top:2px solid var(--line)}
+td.over{color:var(--stop);font-weight:700}
+td.over::before{content:"⚠ "}
+.matrix td.n:empty::after{content:"–";color:var(--muted)}
+.cols{display:grid;grid-template-columns:2fr 1fr;gap:14px}
+@media (max-width:900px){.cols{grid-template-columns:1fr}}
+.pin{max-width:420px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>主管報表 <span class="badge" id="demoBadge" hidden>測試資料</span></h1>
+    <div class="tools"><a href="form.html">工廠管理</a>・<a href="index.html">掃碼 App</a></div>
+  </header>
+
+  <section class="panel pin" id="pinPanel" hidden>
+    <label for="pinInput"><b>請輸入主管密碼</b>（還沒設主管密碼時，先用工廠密碼）</label>
+    <div class="tools"><input id="pinInput" type="password" autocomplete="off"><button class="btn btn-go" id="pinGo">確定</button></div>
+  </section>
+
+  <div class="tools" id="rangeBar">
+    <select id="preset" aria-label="期間">
+      <option value="today">今天</option><option value="yesterday">昨天</option><option value="week">本週</option>
+      <option value="month" selected>本月</option><option value="lastmonth">上個月</option><option value="custom">自訂</option>
+    </select>
+    <input type="date" id="from" aria-label="開始日期"> – <input type="date" id="to" aria-label="結束日期">
+    <button class="btn btn-go" id="goBtn">查詢</button>
+    <span class="note" id="status"></span>
+  </div>
+  <div id="msg" class="msg" hidden></div>
+
+  <div id="report" hidden>
+    <div class="wrap" style="max-width:none">
+      <div class="tiles" id="tiles"></div>
+
+      <section class="panel">
+        <div class="panel-head"><h2>各機台時間分配</h2><span class="note">機台時數：每段只算一次（不乘人數）</span></div>
+        <div class="legend"><span><i style="background:var(--s-run)"></i>上機</span><span><i style="background:var(--s-prep)"></i>前置</span><span><i style="background:var(--s-stop)"></i>停機</span></div>
+        <div class="bars" id="bars"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2>各機台</h2><button class="btn btn-small" data-csv="machines">匯出 Excel（CSV）</button></div>
+        <p class="note">上機占比＝上機 ÷（前置＋上機＋停機）。每小時產量＝完成數量 ÷ 上機時數。損耗率＝損耗 ÷（完成＋損耗）。</p>
+        <div class="tablewrap"><table id="machines"></table></div>
+      </section>
+
+      <div class="cols">
+        <section class="panel">
+          <div class="panel-head"><h2>人員工時</h2><button class="btn btn-small" data-csv="people">匯出 Excel（CSV）</button></div>
+          <p class="note">人員時數：每個人掛在工令上的前置＋上機＋停機時間（兩個人一起做，兩個人都算）。</p>
+          <div class="tablewrap"><table id="people"></table></div>
+        </section>
+        <section class="panel">
+          <div class="panel-head"><h2>停機原因</h2><button class="btn btn-small" data-csv="reasons">匯出 Excel（CSV）</button></div>
+          <div class="tablewrap"><table id="reasons"></table></div>
+        </section>
+      </div>
+
+      <section class="panel">
+        <div class="panel-head"><h2>每人每日工時（小時）</h2><button class="btn btn-small" data-csv="daily">匯出 Excel（CSV）</button></div>
+        <p class="note">算薪水用。每格＝那個人那天的工時合計。</p>
+        <div class="tablewrap"><table id="daily" class="matrix"></table></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2>各工令</h2><button class="btn btn-small" data-csv="orders">匯出 Excel（CSV）</button></div>
+        <p class="note">可損耗＝工令數量 × 3%（捨去小數）。損耗與「超標」看這張單全部期間的損耗；其他欄位只算這段期間。</p>
+        <div class="tablewrap"><table id="orders"></table></div>
+      </section>
+    </div>
+  </div>
+</div>
+<div class="tip" id="tip" hidden></div>
+
+<script src="config.js"></script>
+<script>
+const DEMO = location.hash==="#demo" || !window.APP_CONFIG?.sheetApi;
+const API = DEMO ? "" : window.APP_CONFIG.sheetApi;
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
+const $=id=>document.getElementById(id);
+const PH={run:"上機",prep:"前置",stop:"停機"};
+let pin=store.get("mpin",""), data=null, tables={};
+
+function say(text,cls="err"){const m=$("msg");m.className="msg "+cls;m.textContent=text;m.hidden=!text}
+
+// ---- date range ----
+const iso=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+function presetRange(p){
+  const t=new Date(); t.setHours(0,0,0,0); const d=new Date(t);
+  if(p==="today") return [iso(t),iso(t)];
+  if(p==="yesterday"){d.setDate(d.getDate()-1);return [iso(d),iso(d)]}
+  if(p==="week"){d.setDate(d.getDate()-((d.getDay()+6)%7));return [iso(d),iso(t)]}   // weeks start on Monday
+  if(p==="month") return [iso(new Date(t.getFullYear(),t.getMonth(),1)),iso(t)];
+  if(p==="lastmonth") return [iso(new Date(t.getFullYear(),t.getMonth()-1,1)),iso(new Date(t.getFullYear(),t.getMonth(),0))];
+  return [$("from").value,$("to").value];
+}
+function applyPreset(){const [a,b]=presetRange($("preset").value);$("from").value=a;$("to").value=b}
+$("preset").onchange=()=>{if($("preset").value!=="custom"){applyPreset();load()}};
+for(const id of ["from","to"]) $(id).onchange=()=>{$("preset").value="custom"};
+$("goBtn").onclick=load;
+
+// ---- loading ----
+async function load(){
+  const from=$("from").value, to=$("to").value;
+  if(!from||!to||from>to){say("日期不對：開始要早於或等於結束。");return}
+  say(""); $("status").textContent="讀取中…";
+  let res;
+  if(DEMO) res=fakeReport(from,to);
+  else{
+    if(!pin){showPin();$("status").textContent="";return}
+    try{res=await (await fetch(API+"?"+new URLSearchParams({action:"report",pin,from,to}))).json()}
+    catch(e){$("status").textContent="";say("連不上伺服器，請確認網路後再試。");return}
+  }
+  $("status").textContent="";
+  if(!res.ok){
+    if(res.error==="bad_pin"){store.set("mpin","");pin="";showPin();say("密碼不正確。");return}
+    say(res.error==="not_configured"?"後端還沒設定密碼。":"讀取失敗："+res.error);return;
+  }
+  data=res; render();
+  if(!DEMO&&!res.managerPin) $("status").textContent="提醒：還沒設主管密碼，現在用工廠密碼就能看這頁。";
+}
+function showPin(){$("pinPanel").hidden=false;$("pinInput").focus()}
+$("pinGo").onclick=()=>{const v=$("pinInput").value.trim();if(!v)return;pin=v;store.set("mpin",v);$("pinInput").value="";$("pinPanel").hidden=true;load()};
+$("pinInput").addEventListener("keydown",e=>{if(e.key==="Enter")$("pinGo").click()});
+
+// ---- numbers ----
+const h=min=>min/60;
+const f1=x=>x==null||!isFinite(x)?"":(Math.round(x*10)/10).toLocaleString(undefined,{minimumFractionDigits:1,maximumFractionDigits:1});
+const f0=x=>x==null||!isFinite(x)?"":Math.round(x).toLocaleString();
+const pct=x=>x==null||!isFinite(x)?"":(Math.round(x*1000)/10).toFixed(1)+"%";
+const unitsOf=set=>set.size===1?[...set][0]:set.size?"（單位不同）":"";
+
+function aggregate(){
+  const {segs,orders,lossRate}=data;
+  const allow=o=>o?.qty!=null?Math.floor(o.qty*lossRate):null;
+  const M=new Map(), P=new Map(), R=new Map(), O=new Map(), D=new Map(), days=new Set();
+  const get=(map,k,init)=>{if(!map.has(k))map.set(k,init());return map.get(k)};
+  for(const s of segs){
+    const o=orders[s.no]||{}, mk=s.machine||"（未選機台）", day=s.start.slice(0,10); days.add(day);
+    const m=get(M,mk,()=>({name:mk,prep:0,run:0,stop:0,done:0,loss:0,orders:new Set(),units:new Set()}));
+    m[s.phase]+=s.min; m.orders.add(s.no); if(s.done!=null){m.done+=s.done;if(o.unit)m.units.add(o.unit)} if(s.loss!=null){m.loss+=s.loss;if(o.unit)m.units.add(o.unit)}
+    for(const n of s.people.length?s.people:["（未記人員）"]){
+      const p=get(P,n,()=>({name:n,prep:0,run:0,stop:0,days:new Set(),orders:new Set()}));
+      p[s.phase]+=s.min; p.days.add(day); p.orders.add(s.no);
+      const d=get(D,n,()=>new Map()); d.set(day,(d.get(day)||0)+s.min);
+    }
+    if(s.phase==="stop"){const r=get(R,s.reason||"（未填）",()=>({name:s.reason||"（未填）",n:0,min:0}));r.n++;r.min+=s.min}
+    const x=get(O,s.no,()=>({no:s.no,name:o.name||"",qty:o.qty,unit:o.unit||"",lossAll:o.lossAll||0,allow:allow(o),prep:0,run:0,stop:0,done:0,machines:new Set(),people:new Set(),first:s.start,last:s.end}));
+    x[s.phase]+=s.min; if(s.done!=null)x.done+=s.done; if(s.machine)x.machines.add(s.machine); s.people.forEach(n=>x.people.add(n));
+    if(s.start<x.first)x.first=s.start; if(s.end>x.last)x.last=s.end;
+  }
+  return {M:[...M.values()],P:[...P.values()],R:[...R.values()],O:[...O.values()],D,days:[...days].sort()};
+}
+
+// ---- render ----
+function render(){
+  const A=aggregate(); $("report").hidden=false;
+  const mins=A.M.reduce((a,m)=>a+m.prep+m.run+m.stop,0), run=A.M.reduce((a,m)=>a+m.run,0), stop=A.M.reduce((a,m)=>a+m.stop,0);
+  const people=A.P.reduce((a,p)=>a+p.prep+p.run+p.stop,0), finished=A.O.filter(o=>o.done>0).length;
+  const over=A.O.filter(o=>o.allow!=null&&o.lossAll>o.allow).length;
+  tiles([["機台總時數",f1(h(mins)),"小時"],["上機占比",pct(mins?run/mins:null),"上機 "+f1(h(run))+" 小時"],["停機",f1(h(stop)),"小時・"+A.R.reduce((a,r)=>a+r.n,0)+" 次"],
+         ["人員總工時",f1(h(people)),"人時・"+A.P.length+" 人"],["有完成數量的工令",String(finished),"共做了 "+A.O.length+" 張"],["損耗超標",String(over),"張工令",over>0]]);
+  if(!data.segs.length){$("bars").textContent="這段期間沒有工時紀錄。"}else bars(A.M);
+  const machines=A.M.map(m=>{const t=m.prep+m.run+m.stop;return {機台:m.name,工令數:m.orders.size,"前置(時)":h(m.prep),"上機(時)":h(m.run),"停機(時)":h(m.stop),"合計(時)":h(t),
+    上機占比:t?m.run/t:null,完成數量:m.done,單位:unitsOf(m.units),"每小時產量":m.run?m.done/h(m.run):null,損耗:m.loss,損耗率:(m.done+m.loss)?m.loss/(m.done+m.loss):null}});
+  table("machines",machines,{fmt:{"前置(時)":f1,"上機(時)":f1,"停機(時)":f1,"合計(時)":f1,上機占比:pct,完成數量:f0,"每小時產量":f0,損耗:f0,損耗率:pct},sort:"合計(時)",total:["工令數","前置(時)","上機(時)","停機(時)","合計(時)"]});
+  const ppl=A.P.map(p=>({姓名:p.name,上工天數:p.days.size,工令數:p.orders.size,"前置(時)":h(p.prep),"上機(時)":h(p.run),"停機(時)":h(p.stop),"合計(時)":h(p.prep+p.run+p.stop)}));
+  table("people",ppl,{fmt:{"前置(時)":f1,"上機(時)":f1,"停機(時)":f1,"合計(時)":f1},sort:"合計(時)",total:["前置(時)","上機(時)","停機(時)","合計(時)"]});
+  const totalStop=A.R.reduce((a,r)=>a+r.min,0);
+  table("reasons",A.R.map(r=>({原因:r.name,次數:r.n,"時數":h(r.min),占停機:totalStop?r.min/totalStop:null})),{fmt:{時數:f1,占停機:pct},sort:"時數",total:["次數","時數"]});
+  const daily=A.P.map(p=>{const row={姓名:p.name};for(const d of A.days)row[d.slice(5).replace("-","/")]=A.D.get(p.name)?.get(d)?h(A.D.get(p.name).get(d)):null;row["合計"]=h(p.prep+p.run+p.stop);return row});
+  const dfmt={}; for(const d of A.days) dfmt[d.slice(5).replace("-","/")]=f1; dfmt["合計"]=f1;
+  table("daily",daily,{fmt:dfmt,sort:"姓名",asc:true,total:[...A.days.map(d=>d.slice(5).replace("-","/")),"合計"]});
+  const ord=A.O.map(o=>({工令單號:o.no,產品名稱:o.name,機台:[...o.machines].join("、"),作業人員:[...o.people].join("、"),數量:o.qty,單位:o.unit,完成數量:o.done||null,
+    損耗:o.lossAll,可損耗:o.allow,"前置(時)":h(o.prep),"上機(時)":h(o.run),"停機(時)":h(o.stop),開始:o.first.slice(5,16),結束:o.last.slice(5,16)}));
+  table("orders",ord,{fmt:{數量:f0,完成數量:f0,損耗:f0,可損耗:f0,"前置(時)":f1,"上機(時)":f1,"停機(時)":f1},sort:"開始",
+    over:r=>r.可損耗!=null&&r.損耗>r.可損耗?"損耗":null});
+}
+function tiles(list){
+  const box=$("tiles"); box.textContent="";
+  for(const [k,v,s,bad] of list){const d=document.createElement("div");d.className="tile"+(bad?" bad":"");
+    d.innerHTML='<div class="k"></div><div class="v"></div><div class="s"></div>';d.querySelector(".k").textContent=k;d.querySelector(".v").textContent=v||"0";d.querySelector(".s").textContent=s;box.append(d)}
+}
+function bars(M){
+  const box=$("bars"); box.textContent="";
+  const rows=[...M].sort((a,b)=>(b.prep+b.run+b.stop)-(a.prep+a.run+a.stop)), max=Math.max(...rows.map(m=>m.prep+m.run+m.stop),1);
+  for(const m of rows){
+    const tot=m.prep+m.run+m.stop, lab=document.createElement("div"); lab.className="lab"; lab.textContent=m.name;
+    const track=document.createElement("div"); track.className="track";
+    const st=document.createElement("div"); st.className="stack"; st.style.width="calc("+(tot/max*100)+"% - 70px)";
+    for(const k of ["run","prep","stop"]) if(m[k]>0){
+      const b=document.createElement("b"); b.style.flex=m[k]+" 1 0"; b.style.background="var(--s-"+k+")";
+      b.dataset.tip=m.name+"・"+PH[k]+" "+f1(h(m[k]))+" 小時（"+pct(m[k]/tot)+"）"; st.append(b);
+    }
+    const t=document.createElement("span"); t.className="tot num"; t.textContent=f1(h(tot))+" 時";
+    track.append(st,t); box.append(lab,track);
+  }
+}
+// hover tooltip for the bar segments
+document.addEventListener("pointermove",e=>{
+  const b=e.target.closest?.("[data-tip]"), tip=$("tip");
+  if(!b){tip.hidden=true;return}
+  tip.textContent=b.dataset.tip; tip.hidden=false;
+  const w=tip.offsetWidth; tip.style.left=Math.min(e.clientX+12,innerWidth-w-8)+"px"; tip.style.top=(e.clientY+14)+"px";
+});
+
+// Sortable table with an optional total row. Keeps its rows for the CSV export.
+function table(id,rows,{fmt={},sort,asc=false,total=[],over}={}){
+  const el=$(id), cols=rows.length?Object.keys(rows[0]):[];
+  tables[id]={rows,cols,fmt};
+  const st=el.dataset.sort?JSON.parse(el.dataset.sort):{k:sort,asc};
+  const numeric=k=>rows.some(r=>typeof r[k]==="number");
+  const sorted=[...rows].sort((a,b)=>{const x=a[st.k],y=b[st.k];if(x==y)return 0;if(x==null)return 1;if(y==null)return -1;return (x<y?-1:1)*(st.asc?1:-1)});
+  el.textContent="";
+  if(!rows.length){el.innerHTML='<tbody><tr><td class="note">這段期間沒有資料。</td></tr></tbody>';return}
+  const thead=el.createTHead().insertRow();
+  for(const k of cols){const th=document.createElement("th");th.textContent=k;if(numeric(k))th.className="n";th.scope="col";
+    if(k===st.k)th.setAttribute("aria-sort",st.asc?"ascending":"descending");
+    th.onclick=()=>{el.dataset.sort=JSON.stringify({k,asc:k===st.k?!st.asc:!numeric(k)});table(id,rows,{fmt,sort,asc,total,over})};thead.append(th)}
+  const tb=el.createTBody();
+  for(const r of sorted){const tr=tb.insertRow(); const bad=over?.(r);
+    for(const k of cols){const td=tr.insertCell();const v=r[k];td.textContent=fmt[k]?fmt[k](v):(v??"");if(numeric(k))td.className="n";if(bad===k)td.classList.add("over")}}
+  if(total.length){const tr=tb.insertRow();tr.className="total";
+    cols.forEach((k,i)=>{const td=tr.insertCell();if(numeric(k))td.className="n";
+      if(i===0)td.textContent="合計";else if(total.includes(k)){const s=rows.reduce((a,r)=>a+(r[k]||0),0);td.textContent=fmt[k]?fmt[k](s):s.toLocaleString()}})}
+}
+
+// ---- CSV export (opens in Excel; BOM so Chinese shows correctly) ----
+document.addEventListener("click",e=>{
+  const id=e.target.dataset?.csv; if(!id||!tables[id]) return;
+  const {rows,cols,fmt}=tables[id];
+  const cell=v=>{v=v==null?"":String(v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+  const plain=(k,v)=>v==null?"":fmt[k]?fmt[k](v).replace(/,/g,""):v;
+  const csv=[cols.map(cell).join(","),...rows.map(r=>cols.map(k=>cell(plain(k,r[k]))).join(","))].join("\r\n");
+  const name={machines:"各機台",people:"人員工時",reasons:"停機原因",daily:"每人每日工時",orders:"各工令"}[id];
+  const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob(["﻿"+csv],{type:"text/csv"}));
+  a.download=name+"_"+$("from").value+"_"+$("to").value+".csv"; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+});
+
+// ---- made-up data for #demo (no real names or orders) ----
+function fakeReport(from,to){
+  let seed=7; const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
+  const machines=["小粉包機-1","小粉包機-2","小粉包機-3","大粉包機-1","240kg混料"], people=["測試甲","測試乙","測試丙","測試丁","測試戊"];
+  const reasons=["等料","機器故障","休息／用餐","品質問題","其他"], segs=[], orders={};
+  const fmt=d=>iso(d)+" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0")+":00";
+  for(let d=new Date(from+"T00:00");iso(d)<=to;d.setDate(d.getDate()+1)){
+    if(d.getDay()===0) continue;
+    machines.forEach((m,mi)=>{
+      if(rnd()<.15) return;
+      const no="T"+iso(d).replace(/-/g,"").slice(2)+String(mi).padStart(3,"0"), mix=/混料/.test(m);
+      const qty=mix?Math.round(200+rnd()*600):Math.round(3000+rnd()*9000);
+      orders[no]={name:"測試品_"+(mix?"混料":"粉包")+mi,code:"P"+mi,qty,unit:mix?"公斤":"包",item:mix?"7混料":"4粉包",lossAll:0};
+      const crew=[people[mi%5],...(rnd()<.4?[people[(mi+2)%5]]:[])];
+      let t=new Date(d); t.setHours(8,Math.round(rnd()*40));
+      const add=(phase,min,extra={})=>{const s=new Date(t);t=new Date(t.getTime()+min*60000);segs.push({no,phase,reason:"",start:fmt(s),end:fmt(t),min,loss:null,done:null,machine:m,people:crew,...extra})};
+      const loss=Math.round(qty*(.01+rnd()*.03)*(mi===3?1.6:1)); orders[no].lossAll=loss;
+      add("prep",Math.round(25+rnd()*50),{loss});
+      add("run",Math.round(120+rnd()*120));
+      if(rnd()<.7) add("stop",Math.round(10+rnd()*(mi===1?120:40)),{reason:reasons[Math.floor(rnd()*(mi===1?2:5))]});
+      add("run",Math.round(90+rnd()*150),{done:qty-loss+Math.round((rnd()-.5)*qty*.02)});
+    });
+  }
+  return {ok:true,from,to,segs,orders,lossRate:0.03,managerPin:true};
+}
+
+$("demoBadge").hidden=!DEMO;
+applyPreset(); load();
+</script>
+</body>
+</html>

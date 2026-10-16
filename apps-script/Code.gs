@@ -14,8 +14,8 @@
  * 手機計時：work（POST）每結束一個階段（前置／上機／停機）送一段進「工時紀錄」分頁，後台把這張單的
  *   各階段分鐘數、損耗、完成數量加總後，寫回表格那一列（前置/上機/停機分鐘、損耗、可損耗、實際用時、製造日期、完工時間、生產進度）。
  *   主管報表（report.html）：action=report&from=yyyy-MM-dd&to=yyyy-MM-dd 回傳這段期間的工時紀錄與相關工令。
- *   有設指令碼屬性 MANAGER_PIN（主管密碼）就只認它，沒設就暫用工廠密碼。
- *   settings（POST，主管密碼）存賺錢計算的成本設定（時薪、機台每小時成本、材料單價、加成、代工費），放在指令碼屬性 REPORT_SETTINGS。
+ *   報表與成本設定都不用密碼（使用者 2026-10-16 決定；網址公開，拿到網址的人都看得到）。
+ *   settings（POST）存賺錢計算的成本設定（時薪、機台每小時成本、材料單價、加成、代工費），放在指令碼屬性 REPORT_SETTINGS。
  *   一個工作間共用一支手機：action=people 給人員與機台名單，每段工時記實際在做的人與機台（沒有上下班打卡，工時就是上機下機的時間）。
  * 資料存在這個帳號自己 Google 雲端的「五股廠生產組表單」試算表，第一次存檔時自動建立。
  *
@@ -42,7 +42,7 @@ const PLATFORM = {
 
 function doGet(e) {
   const p = (e && e.parameter) || {};
-  if (p.action === 'report') return json_(reportAuth_(p) || report_(String(p.from || ''), String(p.to || '')));
+  if (p.action === 'report') return json_(report_(String(p.from || ''), String(p.to || ''))); // 使用者決定報表不設密碼
   const bad = auth_(p);
   if (bad) return bad;
   if (p.action === 'options') return json_({ ok: true, options: options_() });
@@ -66,7 +66,7 @@ function doGet(e) {
 function doPost(e) {
   let p;
   try { p = JSON.parse((e && e.postData && e.postData.contents) || '{}'); } catch (err) { return json_({ ok: false, error: 'bad_request' }); }
-  if (p.action === 'settings') return json_(reportAuth_(p) || saveSettings_(p.settings));
+  if (p.action === 'settings') return json_(saveSettings_(p.settings)); // 報表不設密碼，成本設定也一樣
   const bad = auth_(p);
   if (bad) return bad;
   if (p.action === 'save') return json_(save_(p.row || {}));
@@ -451,15 +451,6 @@ function dbRow_(no) {
 }
 
 // ---- 主管報表 ----
-// 有工時與（之後的）金額，所以有 MANAGER_PIN 就要用主管密碼；沒設時先用工廠密碼。
-function reportAuth_(p) {
-  const props = PropertiesService.getScriptProperties();
-  const want = props.getProperty('MANAGER_PIN') || props.getProperty('PIN');
-  if (!want) return { ok: false, error: 'not_configured' };
-  if (String(p.pin || '') !== want) { Utilities.sleep(800); return { ok: false, error: 'bad_pin' }; }
-  return null;
-}
-
 // 這段期間（依每段的開始日期）的工時紀錄，加上這些工令的品名、數量、單位與「全部期間」的損耗（判斷超標用）。
 function report_(from, to) {
   const day = /^\d{4}-\d{2}-\d{2}$/;
@@ -487,8 +478,7 @@ function report_(from, to) {
       unit: o ? o.unit : (t['單位'] || ''), item: o ? o.item : '', lossAll: lossAll[sg.no] || 0 };
   });
   segs.forEach(sg => { delete sg.name; });
-  return { ok: true, from, to, segs, orders, lossRate: WORK.LOSS_RATE, settings: settings_(),
-    managerPin: !!PropertiesService.getScriptProperties().getProperty('MANAGER_PIN') };
+  return { ok: true, from, to, segs, orders, lossRate: WORK.LOSS_RATE, settings: settings_() };
 }
 
 // 賺錢計算的成本設定。代工費公司還有正式公式（還沒拿到），留空的品項就用報表上的暫定公式。

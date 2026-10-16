@@ -88,7 +88,6 @@ td.over::before{content:"⚠ "}
 .matrix td.n:empty::after{content:"–";color:var(--muted)}
 .cols{display:grid;grid-template-columns:2fr 1fr;gap:14px}
 @media (max-width:900px){.cols{grid-template-columns:1fr}}
-.pin{max-width:420px}
 /* profit */
 .warnbox{background:var(--warn-bg);color:var(--warn-ink);border-radius:8px;padding:8px 12px;font-size:13px}
 .pbars{display:grid;grid-template-columns:minmax(90px,max-content) 1fr 1fr;gap:8px 0;align-items:center}
@@ -130,10 +129,6 @@ th:first-child{z-index:2}
     <h1>主管報表 <span class="badge" id="demoBadge" hidden>測試資料</span></h1>
   </header>
 
-  <section class="panel pin" id="pinPanel" hidden>
-    <label for="pinInput"><b>請輸入主管密碼</b>（還沒設主管密碼時，先用工廠密碼）</label>
-    <div class="tools"><input id="pinInput" type="password" autocomplete="off"><button class="btn btn-go" id="pinGo">確定</button></div>
-  </section>
 
   <div class="tools" id="rangeBar">
     <select id="preset" aria-label="期間">
@@ -213,7 +208,8 @@ const API = DEMO ? "" : window.APP_CONFIG.sheetApi;
 const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
 const $=id=>document.getElementById(id);
 const PH={run:"上機",prep:"前置",stop:"停機"};
-let pin=store.get("mpin",""), data=null, tables={};
+let data=null, tables={};   // no password: the user decided the report is open to anyone with the link
+try{localStorage.removeItem("mpin")}catch{}
 
 function say(text,cls="err"){const m=$("msg");m.className="msg "+cls;m.textContent=text;m.hidden=!text}
 
@@ -241,21 +237,15 @@ async function load(){
   let res;
   if(DEMO) res=fakeReport(from,to);
   else{
-    if(!pin){showPin();$("status").textContent="";return}
-    try{res=await (await fetch(API+"?"+new URLSearchParams({action:"report",pin,from,to}))).json()}
+    try{res=await (await fetch(API+"?"+new URLSearchParams({action:"report",from,to}))).json()}
     catch(e){$("status").textContent="";say("連不上伺服器，請確認網路後再試。");return}
   }
   $("status").textContent="";
   if(!res.ok){
-    if(res.error==="bad_pin"){store.set("mpin","");pin="";showPin();say("密碼不正確。");return}
-    say(res.error==="not_configured"?"後端還沒設定密碼。":"讀取失敗："+res.error);return;
+    say("讀取失敗："+res.error);return;
   }
   data=res; render();
-  if(!DEMO&&!res.managerPin) $("status").textContent="提醒：還沒設主管密碼，現在用工廠密碼就能看這頁。";
 }
-function showPin(){$("pinPanel").hidden=false;$("pinInput").focus()}
-$("pinGo").onclick=()=>{const v=$("pinInput").value.trim();if(!v)return;pin=v;store.set("mpin",v);$("pinInput").value="";$("pinPanel").hidden=true;load()};
-$("pinInput").addEventListener("keydown",e=>{if(e.key==="Enter")$("pinGo").click()});
 
 // ---- numbers ----
 const h=min=>min/60;
@@ -367,8 +357,8 @@ $("saveSettings").onclick=async()=>{
   $("setStatus").textContent="儲存中…";
   if(DEMO){settings=out;$("setStatus").textContent="已更新（測試資料，不會存到後台）";render();$("settingsBox").open=true;return}
   try{
-    const res=await (await fetch(API,{method:"POST",body:JSON.stringify({action:"settings",pin,settings:out})})).json();
-    if(!res.ok){$("setStatus").textContent=res.error==="bad_pin"?"密碼不正確。":"沒存成功："+res.error;return}
+    const res=await (await fetch(API,{method:"POST",body:JSON.stringify({action:"settings",settings:out})})).json();
+    if(!res.ok){$("setStatus").textContent="沒存成功："+res.error;return}
     settings=res.settings; render(); $("settingsBox").open=true; $("setStatus").textContent="已儲存。";
   }catch(e){$("setStatus").textContent="連不上伺服器，沒存成功。"}
 };
@@ -485,7 +475,7 @@ function fakeReport(from,to){
       add("run",Math.round(90+rnd()*150),{done:qty-loss+Math.round((rnd()-.5)*qty*.02)});
     });
   }
-  return {ok:true,from,to,segs,orders,lossRate:0.03,managerPin:true,settings:{wage:200,markup:0.3,machineCost:{"*":40,"大粉包機-1":80},material:{"*":0,"包":0.6,"公斤":120},fee:{}}};
+  return {ok:true,from,to,segs,orders,lossRate:0.03,settings:{wage:200,markup:0.3,machineCost:{"*":40,"大粉包機-1":80},material:{"*":0,"包":0.6,"公斤":120},fee:{}}};
 }
 
 $("demoBadge").hidden=!DEMO;

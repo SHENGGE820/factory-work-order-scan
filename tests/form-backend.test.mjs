@@ -239,11 +239,7 @@ assert.deepEqual(rp.segs[2], { no: 'V1150831005', phase: 'stop', reason: '等料
 assert.deepEqual(rp.orders.V1150831005, { name: '2M_西洋梨型 裸包 (每包3公克)', code: '4104002200098', qty: 6000, unit: '包', item: '4粉包', lossAll: 50 });
 assert.equal(get({ action: 'report', from: '2026-10-15', to: '2026-10-20' }).segs.length, 0);
 assert.equal(get({ action: 'report', from: 'x', to: '2026-10-20' }).error, 'bad_request');
-assert.equal(f.doGet({ parameter: { action: 'report', pin: 'nope', from: '2026-10-14', to: '2026-10-14' } }).error, 'bad_pin');
-props.MANAGER_PIN = '9999'; // once a manager password is set, the factory password no longer opens the report
-assert.equal(get({ action: 'report', from: '2026-10-14', to: '2026-10-14' }).error, 'bad_pin');
-assert.equal(f.doGet({ parameter: { action: 'report', pin: '9999', from: '2026-10-14', to: '2026-10-14' } }).managerPin, true);
-delete props.MANAGER_PIN;
+assert.equal(f.doGet({ parameter: { action: 'report', from: '2026-10-14', to: '2026-10-14' } }).ok, true); // the report needs no password
 // cost settings for the profit part of the report
 assert.deepEqual(rp.settings, { wage: 200, markup: 0.3, machineCost: { '*': 0 }, material: { '*': 0 }, fee: {} });
 const sv = post({ action: 'settings', settings: { wage: '210', markup: 0.25, machineCost: { '*': 40, '小粉包機-1': '55' }, material: { '包': 0.4, x: 'abc' }, fee: { '4粉包': 1.2, '7混料': '' } } });
@@ -251,7 +247,7 @@ assert.equal(sv.ok, true);
 assert.deepEqual(sv.settings, { wage: 210, markup: 0.25, machineCost: { '*': 40, '小粉包機-1': 55 }, material: { '包': 0.4 }, fee: { '4粉包': 1.2 } });
 assert.equal(get({ action: 'report', from: '2026-10-14', to: '2026-10-14' }).settings.machineCost['小粉包機-1'], 55);
 assert.equal(post({ action: 'settings', settings: { wage: -1, markup: 0.3 } }).error, 'bad_request');
-assert.equal(f.doPost({ postData: { contents: JSON.stringify({ pin: 'nope', action: 'settings', settings: { wage: 1, markup: 0 } }) } }).error, 'bad_pin');
+assert.equal(f.doPost({ postData: { contents: JSON.stringify({ action: 'settings', settings: { wage: 1, markup: 0 } }) } }).ok, true); // nor do the settings
 
 // staff list for the shared phone
 assert.deepEqual(get({ action: 'people' }).people, ['小明', '小華']);

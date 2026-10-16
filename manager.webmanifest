@@ -1,0 +1,16 @@
+{
+  "name": "主管報表",
+  "short_name": "主管報表",
+  "id": "report.html",
+  "start_url": "report.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#eef1f4",
+  "theme_color": "#15202b",
+  "icons": [
+    { "src": "icons/manager-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/manager-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/manager-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/manager-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -220,18 +220,14 @@ html.native-scanning body{visibility:hidden}
         <div class="reasons" id="reasonGrid"></div>
         <button class="btn btn-ghost" id="reasonBack" data-t="back">返回</button>
       </div>
-      <div class="done" id="lossPanel" hidden>
-        <label for="lossInput" data-t="lossAsk">前置損耗數量</label>
+      <div class="done" id="donePanel" hidden>
+        <label for="doneInput" data-t="doneAsk">完成數量</label>
+        <input id="doneInput" class="mono" type="number" inputmode="numeric" min="0" step="1" autocomplete="off">
+        <div id="doneErr" class="msg err" data-t="needQty" hidden></div>
+        <label for="lossInput" data-t="lossAsk">損耗數量</label>
         <p class="note" id="lossHint"></p>
         <input id="lossInput" class="mono" type="number" inputmode="numeric" min="0" step="1" autocomplete="off">
         <div id="lossErr" class="msg err" data-t="needLoss" hidden></div>
-        <button class="btn btn-go" id="lossSave" data-t="lossSave">確認，開始上機</button>
-        <button class="btn btn-ghost" id="lossBack" data-t="back">返回</button>
-      </div>
-      <div class="done" id="donePanel" hidden>
-        <label for="doneInput" data-t="doneAsk">完成顆數</label>
-        <input id="doneInput" class="mono" type="number" inputmode="numeric" min="0" step="1" autocomplete="off">
-        <div id="doneErr" class="msg err" data-t="needQty" hidden></div>
         <button class="btn btn-stop" id="saveBtn" data-t="saveEnd">確認，結束計時</button>
         <button class="btn btn-ghost" id="backBtn" data-t="back">返回</button>
       </div>
@@ -309,7 +305,7 @@ const T = {
       busy:"讀取中…",noCode:"沒有讀到工令單號條碼。請把「工令單號」那條拍清楚、拍正，再試一次。",
       badFormat:"這不是工令單號（應為 1 個英文字加 10 位數字）。",notFound:"查無此單：",
       records:"工時紀錄",empty:"還沒有紀錄。",phasePrep:"前置作業",phaseRun:"上機作業",endPrep:"前置結束，開始上機",endRun:"上機結束",doneAsk:"完成數量",saveEnd:"確認，結束計時",back:"返回",cancelPrep:"掃錯單，取消",finishFirst:"還有一張單在計時中，請先把它結束，才能開始下一張。",needQty:"請輸入完成數量（整數）。",saved:"已記錄，辛苦了！",done:"完成",pcs:"顆",
-      phaseStop:"停機",stop:"停機",resume:"恢復作業",reasonAsk:"停機原因（按一個）",allowLoss:"可損耗",usedLoss:"已損耗",lossAsk:"前置損耗數量",lossHint:"換鋁卷、換碳帶、調機、破包、打印、水測，全部加起來。",lossSave:"確認，開始上機",needLoss:"請輸入損耗數量（整數，沒有就填 0）。",overLoss:"已超過可損耗數量！",pending:"未上傳",logLive:"紀錄會自動上傳；沒有網路時先存在手機，連上網路再補傳。",loss:"損耗",r_material:"等料",r_breakdown:"機器故障",r_break:"休息／用餐",r_quality:"品質問題",r_other:"其他",jobs:"進行中的工令",noJobs:"目前沒有進行中的工令。掃一張工令開始。",whoAsk:"誰做這張？（可以選好幾個人）",machineAsk:"機台",noMachine:"（不選）",startJob:"開始計時",saveCrew:"確認換人",needWho:"請至少選一個人。",changeCrew:"換人／換機台",hideOrder:"收起",fMach:"機台",fPeople:"作業人員",noStaff:"讀不到人員名單，請確認網路後重新打開。",inProgress:"進行中",min:"分鐘",
+      phaseStop:"停機",stop:"停機",resume:"恢復作業",reasonAsk:"停機原因（按一個）",allowLoss:"可損耗",usedLoss:"已損耗",lossAsk:"損耗數量",lossHint:"這張單做下來全部的損耗（換鋁卷、換碳帶、調機、破包、打印、水測…），沒有就填 0。",needLoss:"請輸入損耗數量（整數，沒有就填 0）。",overLoss:"已超過可損耗數量！",pending:"未上傳",logLive:"紀錄會自動上傳；沒有網路時先存在手機，連上網路再補傳。",loss:"損耗",r_material:"等料",r_breakdown:"機器故障",r_break:"休息／用餐",r_quality:"品質問題",r_other:"其他",jobs:"進行中的工令",noJobs:"目前沒有進行中的工令。掃一張工令開始。",whoAsk:"誰做這張？（可以選好幾個人）",machineAsk:"機台",noMachine:"（不選）",startJob:"開始計時",saveCrew:"確認換人",needWho:"請至少選一個人。",changeCrew:"換人／換機台",hideOrder:"收起",fMach:"機台",fPeople:"作業人員",noStaff:"讀不到人員名單，請確認網路後重新打開。",inProgress:"進行中",min:"分鐘",
       sheetNote:"用電腦開這一頁，再用手機的「掃描」頁對著螢幕拍照。全部是編造的測試資料。",
       slipNo:"工令單號",slipQty:"數量"},
   vi:{title:"Quét lệnh sản xuất",demo:"Bản thử・Dữ liệu giả",tabScan:"Quét",tabSheet:"Phiếu thử",scan:"Chụp ảnh thay thế",live:"Quét phiếu",aim:"Đưa mã vạch “工令單號” vào khung",checking:"Đã đọc, đang tìm… ",torch:"Đèn pin",closeCam:"Tắt camera",camErr:"Không mở được camera. Hãy cho phép dùng camera, hoặc chụp ảnh.",tryPhoto:"Không quét được? Hãy bấm “Chụp ảnh thay thế” bên dưới.",find:"Tìm",pinAsk:"Nhập mật khẩu nhà máy (chỉ một lần)",ok:"OK",badPin:"Mật khẩu nhà máy không đúng, hãy nhập lại.",netErr:"Không kết nối được dữ liệu. Kiểm tra mạng rồi thử lại.",live1:"Bản thử",
@@ -318,7 +314,7 @@ const T = {
       busy:"Đang đọc…",noCode:"Không đọc được mã vạch số lệnh. Hãy chụp rõ và thẳng mã vạch “工令單號”, rồi thử lại.",
       badFormat:"Đây không phải số lệnh SX (1 chữ cái + 10 chữ số).",notFound:"Không tìm thấy phiếu: ",
       records:"Nhật ký giờ làm",empty:"Chưa có dữ liệu.",phasePrep:"Chuẩn bị",phaseRun:"Chạy máy",endPrep:"Xong chuẩn bị, bắt đầu chạy máy",endRun:"Kết thúc chạy máy",doneAsk:"Số lượng hoàn thành",saveEnd:"Xác nhận, dừng tính giờ",back:"Quay lại",cancelPrep:"Quét nhầm phiếu, hủy",finishFirst:"Còn một phiếu đang tính giờ. Hãy kết thúc phiếu đó trước khi bắt đầu phiếu mới.",needQty:"Hãy nhập số lượng hoàn thành (số nguyên).",saved:"Đã lưu. Cảm ơn bạn!",done:"Hoàn thành",pcs:"viên",
-      phaseStop:"Dừng máy",stop:"Dừng máy",resume:"Tiếp tục làm",reasonAsk:"Lý do dừng máy (chọn một)",allowLoss:"Hao hụt cho phép",usedLoss:"Đã hao hụt",lossAsk:"Số hao hụt khi chuẩn bị",lossHint:"Cộng tất cả: thay cuộn nhôm, thay ruy băng mực, chỉnh máy, rách gói, in, thử nước.",lossSave:"Xác nhận, bắt đầu chạy máy",needLoss:"Hãy nhập số hao hụt (số nguyên, không có thì nhập 0).",overLoss:"Đã vượt mức hao hụt cho phép!",pending:"Chưa gửi",logLive:"Dữ liệu tự động gửi lên; khi không có mạng sẽ lưu trên điện thoại và gửi lại khi có mạng.",loss:"Hao hụt",r_material:"Chờ nguyên liệu",r_breakdown:"Máy hỏng",r_break:"Nghỉ / ăn cơm",r_quality:"Vấn đề chất lượng",r_other:"Khác",jobs:"Lệnh đang làm",noJobs:"Hiện chưa có lệnh nào. Quét một phiếu để bắt đầu.",whoAsk:"Ai làm phiếu này? (có thể chọn nhiều người)",machineAsk:"Máy",noMachine:"(không chọn)",startJob:"Bắt đầu tính giờ",saveCrew:"Xác nhận đổi người",needWho:"Hãy chọn ít nhất một người.",changeCrew:"Đổi người / đổi máy",hideOrder:"Thu gọn",fMach:"Máy",fPeople:"Người làm",noStaff:"Không tải được danh sách nhân viên, hãy kiểm tra mạng rồi mở lại.",inProgress:"Đang làm",min:"phút",
+      phaseStop:"Dừng máy",stop:"Dừng máy",resume:"Tiếp tục làm",reasonAsk:"Lý do dừng máy (chọn một)",allowLoss:"Hao hụt cho phép",usedLoss:"Đã hao hụt",lossAsk:"Số lượng hao hụt",lossHint:"Tổng hao hụt của cả phiếu này (thay cuộn nhôm, thay ruy băng mực, chỉnh máy, rách gói, in, thử nước…), không có thì nhập 0.",needLoss:"Hãy nhập số hao hụt (số nguyên, không có thì nhập 0).",overLoss:"Đã vượt mức hao hụt cho phép!",pending:"Chưa gửi",logLive:"Dữ liệu tự động gửi lên; khi không có mạng sẽ lưu trên điện thoại và gửi lại khi có mạng.",loss:"Hao hụt",r_material:"Chờ nguyên liệu",r_breakdown:"Máy hỏng",r_break:"Nghỉ / ăn cơm",r_quality:"Vấn đề chất lượng",r_other:"Khác",jobs:"Lệnh đang làm",noJobs:"Hiện chưa có lệnh nào. Quét một phiếu để bắt đầu.",whoAsk:"Ai làm phiếu này? (có thể chọn nhiều người)",machineAsk:"Máy",noMachine:"(không chọn)",startJob:"Bắt đầu tính giờ",saveCrew:"Xác nhận đổi người",needWho:"Hãy chọn ít nhất một người.",changeCrew:"Đổi người / đổi máy",hideOrder:"Thu gọn",fMach:"Máy",fPeople:"Người làm",noStaff:"Không tải được danh sách nhân viên, hãy kiểm tra mạng rồi mở lại.",inProgress:"Đang làm",min:"phút",
       sheetNote:"Mở trang này trên máy tính, rồi dùng trang “Quét” trên điện thoại để chụp màn hình. Dữ liệu đều là giả.",
       slipNo:"Số lệnh SX",slipQty:"Số lượng"},
 };
@@ -668,7 +664,7 @@ function syncTimer(){
   const j=job(), ph=j?j.phase:null, free=!!j&&!ask;
   $("phase").hidden=!j;
   if(j){$("phase").dataset.phase=ph;$("phaseName").textContent=t(PH[ph]);$("phaseReason").textContent=ph==="stop"?t(j.reason):""}
-  $("lossPanel").hidden=ask!=="loss"; $("donePanel").hidden=ask!=="done"; $("reasonPanel").hidden=ask!=="reason"; $("crewPanel").hidden=ask!=="crew";
+  $("donePanel").hidden=ask!=="done"; $("reasonPanel").hidden=ask!=="reason"; $("crewPanel").hidden=ask!=="crew";
   $("endPrepBtn").hidden=!(free&&ph==="prep"); $("endRunBtn").hidden=!(free&&ph==="run");
   $("stopBtn").hidden=!(free&&ph!=="stop"); $("resumeBtn").hidden=!(free&&ph==="stop");
   $("crewBtn").hidden=!free; $("hideBtn").hidden=!free;
@@ -709,20 +705,20 @@ function renderReasons(){
 }
 const ints=v=>{v=String(v).trim();const n=Number(v);return v!==""&&Number.isInteger(n)&&n>=0?n:null};
 function askFor(which,input){ask=which;syncTimer();if(input){$(input).value="";$(input).focus()}}
-$("endPrepBtn").onclick=()=>{$("lossErr").hidden=true;askFor("loss","lossInput")};
-$("lossSave").onclick=()=>{const n=ints($("lossInput").value); if(n==null){$("lossErr").hidden=false;return}
-  const j=job(), now=Date.now(); record(j,now,{loss:n},{...j,phase:"run",start:now,phaseStart:now,scanned:false})};
-$("lossInput").addEventListener("keydown",e=>{if(e.key==="Enter")$("lossSave").click()});
+// 前置 has no loss (user, 2026-10-16): ending it goes straight on to 上機
+$("endPrepBtn").onclick=()=>{const j=job(), now=Date.now(); record(j,now,{},{...j,phase:"run",start:now,phaseStart:now,scanned:false})};
 $("stopBtn").onclick=()=>askFor("reason");
 $("resumeBtn").onclick=()=>{const j=job(), now=Date.now(),{resume,reason,...rest}=j; record(j,now,{},{...rest,phase:resume||"run",start:now,phaseStart:now})};
-$("endRunBtn").onclick=()=>{$("doneErr").hidden=true;askFor("done","doneInput")};
-for(const id of ["backBtn","lossBack","reasonBack"]) $(id).onclick=()=>{ask=null;syncTimer()};
+$("endRunBtn").onclick=()=>{$("doneErr").hidden=$("lossErr").hidden=true;$("lossInput").value="";askFor("done","doneInput")};
+for(const id of ["backBtn","reasonBack"]) $(id).onclick=()=>{ask=null;syncTimer()};
 $("saveBtn").onclick=()=>{
-  const n=ints($("doneInput").value); if(n==null){$("doneErr").hidden=false;return}
-  record(job(),Date.now(),{done:n},null); closeOrder();
+  const n=ints($("doneInput").value), l=ints($("lossInput").value);
+  $("doneErr").hidden=n!=null; $("lossErr").hidden=l!=null; if(n==null||l==null) return;
+  record(job(),Date.now(),{done:n,loss:l},null); closeOrder();
   say("saved","","ok"); window.scrollTo({top:0,behavior:"smooth"});
 };
-$("doneInput").addEventListener("keydown",e=>{if(e.key==="Enter")$("saveBtn").click()});
+$("doneInput").addEventListener("keydown",e=>{if(e.key==="Enter")$("lossInput").focus()});
+$("lossInput").addEventListener("keydown",e=>{if(e.key==="Enter")$("saveBtn").click()});
 $("cancelBtn").onclick=()=>{jobs=jobs.filter(x=>x.id!==current);save();closeOrder();hush()};
 
 // Send waiting segments one by one; anything that fails stays in the outbox and goes out on the next try.

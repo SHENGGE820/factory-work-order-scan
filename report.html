@@ -471,10 +471,10 @@ function fakeReport(from,to){
       let t=new Date(d); t.setHours(8,Math.round(rnd()*40));
       const add=(phase,min,extra={})=>{const s=new Date(t);t=new Date(t.getTime()+min*60000);segs.push({no,phase,reason:"",start:fmt(s),end:fmt(t),min,loss:null,done:null,machine:m,people:crew,...extra})};
       const loss=Math.round(qty*(.01+rnd()*.03)*(mi===3?1.6:1)); orders[no].lossAll=loss;
-      add("prep",Math.round(25+rnd()*50),{loss});
+      add("prep",Math.round(25+rnd()*50));
       add("run",Math.round(120+rnd()*120));
       if(rnd()<.7) add("stop",Math.round(10+rnd()*(mi===1?120:40)),{reason:reasons[Math.floor(rnd()*(mi===1?2:5))]});
-      add("run",Math.round(90+rnd()*150),{done:qty-loss+Math.round((rnd()-.5)*qty*.02)});
+      add("run",Math.round(90+rnd()*150),{done:qty-loss+Math.round((rnd()-.5)*qty*.02),loss});
     });
   }
   return {ok:true,from,to,segs,orders,lossRate:0.03,settings:{wage:200,markup:0.3,machineCost:{"*":40,"大粉包機-1":80},material:{"*":0,"包":0.6,"公斤":120},fee:{}}};

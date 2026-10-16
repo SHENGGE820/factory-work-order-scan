@@ -458,7 +458,7 @@ document.addEventListener("click",e=>{
 function fakeReport(from,to){
   let seed=7; const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
   const machines=["小粉包機-1","小粉包機-2","小粉包機-3","大粉包機-1","240kg混料"], people=["測試甲","測試乙","測試丙","測試丁","測試戊"];
-  const reasons=["等料","機器故障","休息／用餐","品質問題","其他"], segs=[], orders={};
+  const reasons=["換鋁卷","破包","調機","換碳帶","等料","休息／用餐"], segs=[], orders={};
   const fmt=d=>iso(d)+" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0")+":00";
   for(let d=new Date(from+"T00:00");iso(d)<=to;d.setDate(d.getDate()+1)){
     if(d.getDay()===0) continue;
@@ -473,8 +473,9 @@ function fakeReport(from,to){
       const loss=Math.round(qty*(.01+rnd()*.03)*(mi===3?1.6:1)); orders[no].lossAll=loss;
       add("prep",Math.round(25+rnd()*50));
       add("run",Math.round(120+rnd()*120));
-      if(rnd()<.7) add("stop",Math.round(10+rnd()*(mi===1?120:40)),{reason:reasons[Math.floor(rnd()*(mi===1?2:5))]});
-      add("run",Math.round(90+rnd()*150),{done:qty-loss+Math.round((rnd()-.5)*qty*.02),loss});
+      add("stop",Math.round(10+rnd()*(mi===1?60:25)),{reason:reasons[Math.floor(rnd()*4)],loss});   // stops like 換鋁卷／破包 are where the loss happens
+      if(rnd()<.5) add("stop",Math.round(10+rnd()*30),{reason:reasons[4+Math.floor(rnd()*2)]});
+      add("run",Math.round(90+rnd()*150),{done:qty-loss+Math.round((rnd()-.5)*qty*.02)});
     });
   }
   return {ok:true,from,to,segs,orders,lossRate:0.03,settings:{wage:200,markup:0.3,machineCost:{"*":40,"大粉包機-1":80},material:{"*":0,"包":0.6,"公斤":120},fee:{}}};

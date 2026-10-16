@@ -16,17 +16,19 @@
   --accent:#f2c200; --go:#1d8a4c; --go-bg:#e2f3e9; --stop:#c43a2f; --stop-bg:#fbe4e1; --warn-bg:#fff4cc; --warn-ink:#6b5200;
   /* chart series: categorical slots 1-3 of the reference palette (上機, 前置, 停機) */
   --s-run:#2a78d6; --s-prep:#eb6834; --s-stop:#1baf7a;
+  /* profit chart: diverging blue (profit) / red (loss) around a gray zero line */
+  --d-pos:#2a78d6; --d-neg:#e34948; --d-mid:#c9c8c3;
   --font-body:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
   --font-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#0f151b; --surface:#18212a; --ink:#e6ebf0; --muted:#97a4b2; --line:#2c3843; --grid:#222d37;
   --go:#2fa866; --go-bg:#13301f; --stop:#e05547; --stop-bg:#3a1714; --warn-bg:#3a3110; --warn-ink:#f3dc8a;
-  --s-run:#3987e5; --s-prep:#d95926; --s-stop:#199e70; color-scheme:dark}}
+  --s-run:#3987e5; --s-prep:#d95926; --s-stop:#199e70; --d-pos:#3987e5; --d-neg:#e66767; --d-mid:#55554f; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#0f151b; --surface:#18212a; --ink:#e6ebf0; --muted:#97a4b2; --line:#2c3843; --grid:#222d37;
   --go:#2fa866; --go-bg:#13301f; --stop:#e05547; --stop-bg:#3a1714; --warn-bg:#3a3110; --warn-ink:#f3dc8a;
-  --s-run:#3987e5; --s-prep:#d95926; --s-stop:#199e70; color-scheme:dark}
+  --s-run:#3987e5; --s-prep:#d95926; --s-stop:#199e70; --d-pos:#3987e5; --d-neg:#e66767; --d-mid:#55554f; color-scheme:dark}
 *,*::before,*::after{box-sizing:border-box}
 [hidden]{display:none!important}
 html,body{margin:0;background:var(--bg);color:var(--ink)}
@@ -87,6 +89,23 @@ td.over::before{content:"⚠ "}
 .cols{display:grid;grid-template-columns:2fr 1fr;gap:14px}
 @media (max-width:900px){.cols{grid-template-columns:1fr}}
 .pin{max-width:420px}
+/* profit */
+.warnbox{background:var(--warn-bg);color:var(--warn-ink);border-radius:8px;padding:8px 12px;font-size:13px}
+.pbars{display:grid;grid-template-columns:minmax(90px,max-content) 1fr 1fr;gap:8px 0;align-items:center}
+.pbars .lab{font-size:13px;font-weight:600;text-align:right;padding-right:12px;white-space:nowrap}
+.pbars .neg,.pbars .pos{display:flex;align-items:center;gap:6px;height:22px}
+.pbars .neg{justify-content:flex-end;border-right:2px solid var(--d-mid);padding-right:2px}
+.pbars .pos{padding-left:2px}
+.pbars b{display:block;height:18px;min-width:2px}
+.pbars .neg b{background:var(--d-neg);border-radius:4px 0 0 4px}
+.pbars .pos b{background:var(--d-pos);border-radius:0 4px 4px 0}
+.pbars .v{font-size:12px;color:var(--muted);white-space:nowrap;font-family:var(--font-mono)}
+td.neg{color:var(--stop);font-weight:700}
+details.settings summary{cursor:pointer;font-weight:700;font-size:15px}
+.setgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px 16px;margin-top:10px}
+.setgrid label{display:flex;flex-direction:column;gap:3px;font-size:13px;color:var(--muted)}
+.setgrid input{width:100%}
+.setgrid h3{grid-column:1/-1;font-size:14px;margin:8px 0 0;color:var(--ink)}
 /* first column stays visible while a wide table scrolls sideways */
 th:first-child,td:first-child{position:sticky;left:0;z-index:1}
 th:first-child{z-index:2}
@@ -130,6 +149,22 @@ th:first-child{z-index:2}
   <div id="report" hidden>
     <div class="wrap" style="max-width:none">
       <div class="tiles" id="tiles"></div>
+
+      <section class="panel">
+        <div class="panel-head"><h2>賺錢計算（第一版・暫定）</h2><button class="btn btn-small" data-csv="profit">匯出 Excel（CSV）</button></div>
+        <div class="warnbox" id="moneyWarn"></div>
+        <div class="tiles" id="moneyTiles"></div>
+        <h3 style="margin:4px 0 0;font-size:15px">各機台毛利</h3>
+        <div class="legend"><span><i style="background:var(--d-pos)"></i>賺</span><span><i style="background:var(--d-neg)"></i>虧</span></div>
+        <div class="pbars" id="pbars"></div>
+        <div class="tablewrap"><table id="profit"></table></div>
+        <details class="settings" id="settingsBox">
+          <summary>成本設定（時薪、機台成本、材料單價、代工費）</summary>
+          <p class="note">改完按「儲存設定」，所有主管看到的都會一起變。留空的代工費＝用暫定公式。</p>
+          <div class="setgrid" id="setgrid"></div>
+          <div class="tools" style="margin-top:10px"><button class="btn btn-go" id="saveSettings">儲存設定</button><span class="note" id="setStatus"></span></div>
+        </details>
+      </section>
 
       <section class="panel">
         <div class="panel-head"><h2>各機台時間分配</h2><span class="note">機台時數：每段只算一次（不乘人數）</span></div>
@@ -251,9 +286,98 @@ function aggregate(){
   return {M:[...M.values()],P:[...P.values()],R:[...R.values()],O:[...O.values()],D,days:[...days].sort()};
 }
 
+// ---- money (first version) ----
+// Costs per segment: people × hours × hourly wage, machine hours × the machine's hourly cost, loss × material cost per unit.
+// Income: finished quantity × 代工費 of the order's 品項. The company has an official 代工費 formula we do not have yet,
+// so a 品項 without a set 代工費 uses a provisional one: its average cost per finished unit in this period × (1 + markup).
+let settings=null;
+const costOf=(map,k)=>map&&map[k]!=null?map[k]:(map?.["*"]??0);
+function money(){
+  const S=settings, {segs,orders}=data;
+  const itemOf=no=>orders[no]?.item||"（未分類）";
+  const seg=s=>{const o=orders[s.no]||{}, hrs=s.min/60;
+    return {labor:hrs*S.wage*Math.max(s.people.length,1), machine:hrs*costOf(S.machineCost,s.machine), material:(s.loss||0)*costOf(S.material,o.unit)}};
+  // provisional 代工費 per 品項, from orders that finished something in this period
+  const base=new Map();
+  const doneBy=new Map(); for(const s of segs) if(s.done) doneBy.set(s.no,(doneBy.get(s.no)||0)+s.done);
+  for(const s of segs){ if(!doneBy.has(s.no)) continue; const c=seg(s), it=itemOf(s.no), b=base.get(it)||{cost:0,done:0};
+    b.cost+=c.labor+c.machine+c.material; base.set(it,b) }
+  for(const [no,d] of doneBy){const b=base.get(itemOf(no)); if(b) b.done+=d}
+  const fee={}, feeAuto={};
+  for(const [it,b] of base) feeAuto[it]=b.done?b.cost/b.done*(1+S.markup):null;
+  for(const it of new Set(Object.keys(orders).map(itemOf))) fee[it]=S.fee?.[it]!=null?S.fee[it]:feeAuto[it]??null;
+  const M=new Map(), O=new Map();
+  const add=(map,k,init,c,inc,hrs)=>{const x=map.get(k)||init(); x.labor+=c.labor; x.machine+=c.machine; x.material+=c.material; x.income+=inc; x.hours+=hrs; map.set(k,x)};
+  for(const s of segs){
+    const c=seg(s), inc=(s.done||0)*(fee[itemOf(s.no)]||0);
+    add(M,s.machine||"（未選機台）",()=>({name:s.machine||"（未選機台）",labor:0,machine:0,material:0,income:0,hours:0}),c,inc,s.min/60);
+    add(O,s.no,()=>({no:s.no,labor:0,machine:0,material:0,income:0,hours:0}),c,inc,s.min/60);
+  }
+  return {fee,feeAuto,M:[...M.values()],O};
+}
+function renderMoney(A){
+  const X=money(), S=settings, sum=k=>X.M.reduce((a,m)=>a+m[k],0);
+  const income=sum("income"), cost=sum("labor")+sum("machine")+sum("material"), profit=income-cost;
+  const missing=[S.machineCost?.["*"]?null:"機台成本",S.material?.["*"]||Object.keys(S.material||{}).length>1?null:"材料單價"].filter(Boolean);
+  const manual=Object.keys(S.fee||{}).length;
+  $("moneyWarn").textContent="⚠ 代工費還不是公司的正式公式："+(manual?"有 "+manual+" 個品項用你填的代工費，其他":"全部")+"用暫定公式（這段期間每單位平均成本 ×（1＋加成 "+pct(S.markup)+"））。"
+    +"時薪 "+f0(S.wage)+" 元。"+(missing.length?"還沒填的成本（"+missing.join("、")+"）先當 0 算。":"")+"數字請在下面「成本設定」改。";
+  tilesIn("moneyTiles",[["收入",f0(income),"元"],["成本",f0(cost),"人工 "+f0(sum("labor"))+"・機台 "+f0(sum("machine"))+"・損耗 "+f0(sum("material"))],
+    ["毛利",f0(profit),"元",profit<0],["毛利率",pct(income?profit/income:null),""]]);
+  pbars(X.M.map(m=>({name:m.name,v:m.income-m.labor-m.machine-m.material})));
+  const rows=X.M.map(m=>{const c=m.labor+m.machine+m.material,pf=m.income-c;return {機台:m.name,"時數":m.hours,收入:m.income,人工:m.labor,機台成本:m.machine,損耗材料:m.material,成本合計:c,毛利:pf,毛利率:m.income?pf/m.income:null,"每小時毛利":m.hours?pf/m.hours:null}});
+  table("profit",rows,{fmt:{時數:f1,收入:f0,人工:f0,機台成本:f0,損耗材料:f0,成本合計:f0,毛利:f0,毛利率:pct,"每小時毛利":f0},sort:"毛利",total:["時數","收入","人工","機台成本","損耗材料","成本合計","毛利"],
+    neg:["毛利","毛利率","每小時毛利"]});
+  renderSettings(X);
+  return X;
+}
+function pbars(list){
+  const box=$("pbars"); box.textContent="";
+  const rows=[...list].sort((a,b)=>b.v-a.v), max=Math.max(...rows.map(r=>Math.abs(r.v)),1);
+  for(const r of rows){
+    const lab=document.createElement("div"); lab.className="lab"; lab.textContent=r.name;
+    const neg=document.createElement("div"), pos=document.createElement("div"); neg.className="neg"; pos.className="pos";
+    const b=document.createElement("b"); b.style.width=(Math.abs(r.v)/max*80)+"%"; b.dataset.tip=r.name+"・"+(r.v<0?"虧 ":"賺 ")+f0(Math.abs(r.v))+" 元";
+    const v=document.createElement("span"); v.className="v"; v.textContent=(r.v<0?"虧 "+f0(-r.v):f0(r.v))+" 元";
+    if(r.v<0){neg.append(v,b)}else{pos.append(b,v)}
+    box.append(lab,neg,pos);
+  }
+}
+function renderSettings(X){
+  const S=settings, g=$("setgrid"); g.textContent="";
+  const field=(label,key,val,ph)=>{const l=document.createElement("label");l.textContent=label;const i=document.createElement("input");i.type="number";i.min="0";i.step="any";i.dataset.key=key;
+    i.value=val??"";if(ph!=null)i.placeholder=ph;l.append(i);g.append(l)};
+  const h=t=>{const x=document.createElement("h3");x.textContent=t;g.append(x)};
+  h("基本"); field("時薪（元／小時）","wage",S.wage); field("加成（%）——暫定代工費用","markup",Math.round(S.markup*1000)/10);
+  h("機台每小時成本（電費、折舊、保養…）"); field("全部機台預設（元／小時）","machineCost.*",S.machineCost?.["*"]);
+  const machines=[...new Set(data.segs.map(s=>s.machine).filter(Boolean))].sort();
+  for(const m of machines) field(m+"（空白＝用預設）","machineCost."+m,S.machineCost?.[m],"預設 "+(S.machineCost?.["*"]??0));
+  h("材料單價（損耗 1 單位的材料成本）"); field("預設（元／單位）","material.*",S.material?.["*"]);
+  for(const u of [...new Set(Object.values(data.orders).map(o=>o.unit).filter(Boolean))].sort()) field("每"+u+"（元）","material."+u,S.material?.[u],"預設 "+(S.material?.["*"]??0));
+  h("代工費（每單位收入；空白＝用暫定公式）");
+  for(const it of Object.keys(X.fee).sort()) field(it+"（元／單位）","fee."+it,S.fee?.[it],X.feeAuto[it]!=null?"暫定 "+(Math.round(X.feeAuto[it]*100)/100):"這段期間沒有完成數量");
+}
+$("saveSettings").onclick=async()=>{
+  const out={wage:null,markup:null,machineCost:{},material:{},fee:{}};
+  for(const i of $("setgrid").querySelectorAll("input")){
+    const v=i.value.trim(); if(v==="") continue; const n=Number(v); if(!isFinite(n)||n<0){$("setStatus").textContent="「"+i.parentNode.firstChild.textContent+"」要填 0 以上的數字。";return}
+    const [a,...b]=i.dataset.key.split("."); if(b.length) out[a][b.join(".")]=n; else out[a]=a==="markup"?n/100:n;
+  }
+  if(out.wage==null||out.markup==null){$("setStatus").textContent="時薪和加成一定要填。";return}
+  $("setStatus").textContent="儲存中…";
+  if(DEMO){settings=out;$("setStatus").textContent="已更新（測試資料，不會存到後台）";render();$("settingsBox").open=true;return}
+  try{
+    const res=await (await fetch(API,{method:"POST",body:JSON.stringify({action:"settings",pin,settings:out})})).json();
+    if(!res.ok){$("setStatus").textContent=res.error==="bad_pin"?"密碼不正確。":"沒存成功："+res.error;return}
+    settings=res.settings; render(); $("settingsBox").open=true; $("setStatus").textContent="已儲存。";
+  }catch(e){$("setStatus").textContent="連不上伺服器，沒存成功。"}
+};
+
 // ---- render ----
 function render(){
   const A=aggregate(); $("report").hidden=false;
+  if(!settings) settings=data.settings||{wage:200,markup:0.3,machineCost:{"*":0},material:{"*":0},fee:{}};
+  const X=renderMoney(A);
   const mins=A.M.reduce((a,m)=>a+m.prep+m.run+m.stop,0), run=A.M.reduce((a,m)=>a+m.run,0), stop=A.M.reduce((a,m)=>a+m.stop,0);
   const people=A.P.reduce((a,p)=>a+p.prep+p.run+p.stop,0), finished=A.O.filter(o=>o.done>0).length;
   const over=A.O.filter(o=>o.allow!=null&&o.lossAll>o.allow).length;
@@ -270,13 +394,15 @@ function render(){
   const daily=A.P.map(p=>{const row={姓名:p.name};for(const d of A.days)row[d.slice(5).replace("-","/")]=A.D.get(p.name)?.get(d)?h(A.D.get(p.name).get(d)):null;row["合計"]=h(p.prep+p.run+p.stop);return row});
   const dfmt={}; for(const d of A.days) dfmt[d.slice(5).replace("-","/")]=f1; dfmt["合計"]=f1;
   table("daily",daily,{fmt:dfmt,sort:"姓名",asc:true,total:[...A.days.map(d=>d.slice(5).replace("-","/")),"合計"]});
-  const ord=A.O.map(o=>({工令單號:o.no,產品名稱:o.name,機台:[...o.machines].join("、"),作業人員:[...o.people].join("、"),數量:o.qty,單位:o.unit,完成數量:o.done||null,
-    損耗:o.lossAll,可損耗:o.allow,"前置(時)":h(o.prep),"上機(時)":h(o.run),"停機(時)":h(o.stop),開始:o.first.slice(5,16),結束:o.last.slice(5,16)}));
-  table("orders",ord,{fmt:{數量:f0,完成數量:f0,損耗:f0,可損耗:f0,"前置(時)":f1,"上機(時)":f1,"停機(時)":f1},sort:"開始",
-    over:r=>r.可損耗!=null&&r.損耗>r.可損耗?"損耗":null});
+  const ord=A.O.map(o=>{const m=X.O.get(o.no)||{labor:0,machine:0,material:0,income:0}, c=m.labor+m.machine+m.material;
+    return {工令單號:o.no,產品名稱:o.name,機台:[...o.machines].join("、"),作業人員:[...o.people].join("、"),數量:o.qty,單位:o.unit,完成數量:o.done||null,
+    損耗:o.lossAll,可損耗:o.allow,"前置(時)":h(o.prep),"上機(時)":h(o.run),"停機(時)":h(o.stop),收入:m.income,成本:c,毛利:m.income-c,開始:o.first.slice(5,16),結束:o.last.slice(5,16)}});
+  table("orders",ord,{fmt:{數量:f0,完成數量:f0,損耗:f0,可損耗:f0,"前置(時)":f1,"上機(時)":f1,"停機(時)":f1,收入:f0,成本:f0,毛利:f0},sort:"開始",
+    over:r=>r.可損耗!=null&&r.損耗>r.可損耗?"損耗":null,neg:["毛利"]});
 }
-function tiles(list){
-  const box=$("tiles"); box.textContent="";
+function tiles(list){tilesIn("tiles",list)}
+function tilesIn(id,list){
+  const box=$(id); box.textContent="";
   for(const [k,v,s,bad] of list){const d=document.createElement("div");d.className="tile"+(bad?" bad":"");
     d.innerHTML='<div class="k"></div><div class="v"></div><div class="s"></div>';d.querySelector(".k").textContent=k;d.querySelector(".v").textContent=v||"0";d.querySelector(".s").textContent=s;box.append(d)}
 }
@@ -304,7 +430,7 @@ document.addEventListener("pointermove",e=>{
 });
 
 // Sortable table with an optional total row. Keeps its rows for the CSV export.
-function table(id,rows,{fmt={},sort,asc=false,total=[],over}={}){
+function table(id,rows,{fmt={},sort,asc=false,total=[],over,neg=[]}={}){
   const el=$(id), cols=rows.length?Object.keys(rows[0]):[];
   tables[id]={rows,cols,fmt};
   const st=el.dataset.sort?JSON.parse(el.dataset.sort):{k:sort,asc};
@@ -315,10 +441,10 @@ function table(id,rows,{fmt={},sort,asc=false,total=[],over}={}){
   const thead=el.createTHead().insertRow();
   for(const k of cols){const th=document.createElement("th");th.textContent=k;if(numeric(k))th.className="n";th.scope="col";
     if(k===st.k)th.setAttribute("aria-sort",st.asc?"ascending":"descending");
-    th.onclick=()=>{el.dataset.sort=JSON.stringify({k,asc:k===st.k?!st.asc:!numeric(k)});table(id,rows,{fmt,sort,asc,total,over})};thead.append(th)}
+    th.onclick=()=>{el.dataset.sort=JSON.stringify({k,asc:k===st.k?!st.asc:!numeric(k)});table(id,rows,{fmt,sort,asc,total,over,neg})};thead.append(th)}
   const tb=el.createTBody();
   for(const r of sorted){const tr=tb.insertRow(); const bad=over?.(r);
-    for(const k of cols){const td=tr.insertCell();const v=r[k];td.textContent=fmt[k]?fmt[k](v):(v??"");if(numeric(k))td.className="n";if(bad===k)td.classList.add("over")}}
+    for(const k of cols){const td=tr.insertCell();const v=r[k];td.textContent=fmt[k]?fmt[k](v):(v??"");if(numeric(k))td.className="n";if(bad===k)td.classList.add("over");if(neg.includes(k)&&v<0)td.classList.add("neg")}}
   if(total.length){const tr=tb.insertRow();tr.className="total";
     cols.forEach((k,i)=>{const td=tr.insertCell();if(numeric(k))td.className="n";
       if(i===0)td.textContent="合計";else if(total.includes(k)){const s=rows.reduce((a,r)=>a+(r[k]||0),0);td.textContent=fmt[k]?fmt[k](s):s.toLocaleString()}})}
@@ -331,7 +457,7 @@ document.addEventListener("click",e=>{
   const cell=v=>{v=v==null?"":String(v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
   const plain=(k,v)=>v==null?"":fmt[k]?fmt[k](v).replace(/,/g,""):v;
   const csv=[cols.map(cell).join(","),...rows.map(r=>cols.map(k=>cell(plain(k,r[k]))).join(","))].join("\r\n");
-  const name={machines:"各機台",people:"人員工時",reasons:"停機原因",daily:"每人每日工時",orders:"各工令"}[id];
+  const name={machines:"各機台",people:"人員工時",reasons:"停機原因",daily:"每人每日工時",orders:"各工令",profit:"各機台毛利"}[id];
   const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob(["﻿"+csv],{type:"text/csv"}));
   a.download=name+"_"+$("from").value+"_"+$("to").value+".csv"; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 });
@@ -359,7 +485,7 @@ function fakeReport(from,to){
       add("run",Math.round(90+rnd()*150),{done:qty-loss+Math.round((rnd()-.5)*qty*.02)});
     });
   }
-  return {ok:true,from,to,segs,orders,lossRate:0.03,managerPin:true};
+  return {ok:true,from,to,segs,orders,lossRate:0.03,managerPin:true,settings:{wage:200,markup:0.3,machineCost:{"*":40,"大粉包機-1":80},material:{"*":0,"包":0.6,"公斤":120},fee:{}}};
 }
 
 $("demoBadge").hidden=!DEMO;

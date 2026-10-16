@@ -15,6 +15,7 @@
  *   各階段分鐘數、損耗、完成數量加總後，寫回表格那一列（前置/上機/停機分鐘、損耗、可損耗、實際用時、製造日期、完工時間、生產進度）。
  *   主管報表（report.html）：action=report&from=yyyy-MM-dd&to=yyyy-MM-dd 回傳這段期間的工時紀錄與相關工令。
  *   有設指令碼屬性 MANAGER_PIN（主管密碼）就只認它，沒設就暫用工廠密碼。
+ *   settings（POST，主管密碼）存賺錢計算的成本設定（時薪、機台每小時成本、材料單價、加成、代工費），放在指令碼屬性 REPORT_SETTINGS。
  *   一個工作間共用一支手機：action=people 給人員與機台名單，每段工時記實際在做的人與機台（沒有上下班打卡，工時就是上機下機的時間）。
  * 資料存在這個帳號自己 Google 雲端的「五股廠生產組表單」試算表，第一次存檔時自動建立。
  *
@@ -65,6 +66,7 @@ function doGet(e) {
 function doPost(e) {
   let p;
   try { p = JSON.parse((e && e.postData && e.postData.contents) || '{}'); } catch (err) { return json_({ ok: false, error: 'bad_request' }); }
+  if (p.action === 'settings') return json_(reportAuth_(p) || saveSettings_(p.settings));
   const bad = auth_(p);
   if (bad) return bad;
   if (p.action === 'save') return json_(save_(p.row || {}));
@@ -485,7 +487,30 @@ function report_(from, to) {
       unit: o ? o.unit : (t['單位'] || ''), item: o ? o.item : '', lossAll: lossAll[sg.no] || 0 };
   });
   segs.forEach(sg => { delete sg.name; });
-  return { ok: true, from, to, segs, orders, lossRate: WORK.LOSS_RATE, managerPin: !!PropertiesService.getScriptProperties().getProperty('MANAGER_PIN') };
+  return { ok: true, from, to, segs, orders, lossRate: WORK.LOSS_RATE, settings: settings_(),
+    managerPin: !!PropertiesService.getScriptProperties().getProperty('MANAGER_PIN') };
+}
+
+// 賺錢計算的成本設定。代工費公司還有正式公式（還沒拿到），留空的品項就用報表上的暫定公式。
+const SETTINGS_DEFAULT = { wage: 200, markup: 0.3, machineCost: { '*': 0 }, material: { '*': 0 }, fee: {} };
+function settings_() {
+  try { return Object.assign({}, SETTINGS_DEFAULT, JSON.parse(PropertiesService.getScriptProperties().getProperty('REPORT_SETTINGS') || '{}')); }
+  catch (err) { return SETTINGS_DEFAULT; }
+}
+function saveSettings_(x) {
+  if (!x || typeof x !== 'object') return { ok: false, error: 'bad_request' };
+  const num = v => (v === '' || v === null || v === undefined ? null : (isFinite(Number(v)) && Number(v) >= 0 ? Number(v) : NaN));
+  const map = o => {
+    const out = {};
+    if (!o || typeof o !== 'object') return out;
+    Object.keys(o).slice(0, 200).forEach(k => { const v = num(o[k]); if (v !== null && !isNaN(v)) out[String(k).slice(0, 40)] = v; });
+    return out;
+  };
+  const wage = num(x.wage), markup = num(x.markup);
+  if (wage === null || isNaN(wage) || markup === null || isNaN(markup) || markup > 10) return { ok: false, error: 'bad_request' };
+  const out = { wage, markup, machineCost: map(x.machineCost), material: map(x.material), fee: map(x.fee) };
+  PropertiesService.getScriptProperties().setProperty('REPORT_SETTINGS', JSON.stringify(out));
+  return { ok: true, settings: out };
 }
 
 // ---- 一次性匯入：把「五股廠(生產組)」現有的填寫內容帶進表格 ----

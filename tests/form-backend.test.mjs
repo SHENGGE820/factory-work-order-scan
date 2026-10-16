@@ -244,6 +244,14 @@ props.MANAGER_PIN = '9999'; // once a manager password is set, the factory passw
 assert.equal(get({ action: 'report', from: '2026-10-14', to: '2026-10-14' }).error, 'bad_pin');
 assert.equal(f.doGet({ parameter: { action: 'report', pin: '9999', from: '2026-10-14', to: '2026-10-14' } }).managerPin, true);
 delete props.MANAGER_PIN;
+// cost settings for the profit part of the report
+assert.deepEqual(rp.settings, { wage: 200, markup: 0.3, machineCost: { '*': 0 }, material: { '*': 0 }, fee: {} });
+const sv = post({ action: 'settings', settings: { wage: '210', markup: 0.25, machineCost: { '*': 40, '小粉包機-1': '55' }, material: { '包': 0.4, x: 'abc' }, fee: { '4粉包': 1.2, '7混料': '' } } });
+assert.equal(sv.ok, true);
+assert.deepEqual(sv.settings, { wage: 210, markup: 0.25, machineCost: { '*': 40, '小粉包機-1': 55 }, material: { '包': 0.4 }, fee: { '4粉包': 1.2 } });
+assert.equal(get({ action: 'report', from: '2026-10-14', to: '2026-10-14' }).settings.machineCost['小粉包機-1'], 55);
+assert.equal(post({ action: 'settings', settings: { wage: -1, markup: 0.3 } }).error, 'bad_request');
+assert.equal(f.doPost({ postData: { contents: JSON.stringify({ pin: 'nope', action: 'settings', settings: { wage: 1, markup: 0 } }) } }).error, 'bad_pin');
 
 // staff list for the shared phone
 assert.deepEqual(get({ action: 'people' }).people, ['小明', '小華']);

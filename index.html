@@ -87,7 +87,6 @@ h1{font-size:20px;margin:0;text-wrap:balance}
 .chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .chip small{font-weight:400;opacity:.75;font-size:13px}
 .chip:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
-.duty .chip{cursor:default;min-height:40px;font-size:16px}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .two .btn{min-height:52px;font-size:17px}
 .job{all:unset;cursor:pointer;box-sizing:border-box;display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:12px;border-radius:10px;border:1px solid var(--line);border-left:6px solid var(--warn-ink);background:var(--bg)}
@@ -155,19 +154,6 @@ html.native-scanning body{visibility:hidden}
       <div class="manual">
         <input id="pinInput" type="password" inputmode="numeric" autocomplete="off" aria-label="PIN">
         <button class="btn btn-ghost" id="pinGo" data-t="ok">確定</button>
-      </div>
-    </section>
-    <section class="panel" id="dutyPanel">
-      <h2 class="h2" data-t="onDuty">上班中</h2>
-      <div class="chips duty" id="dutyList"></div>
-      <div class="two">
-        <button class="btn btn-ghost" id="clockInBtn" data-t="clockIn">上班打卡</button>
-        <button class="btn btn-ghost" id="clockOutBtn" data-t="clockOut">下班打卡</button>
-      </div>
-      <div class="done" id="namePanel" hidden>
-        <label id="nameAsk"></label>
-        <div class="chips" id="nameGrid"></div>
-        <button class="btn btn-ghost" id="nameBack" data-t="back">返回</button>
       </div>
     </section>
     <section class="panel" id="jobsPanel">
@@ -316,7 +302,7 @@ const T = {
       busy:"讀取中…",noCode:"沒有讀到工令單號條碼。請把「工令單號」那條拍清楚、拍正，再試一次。",
       badFormat:"這不是工令單號（應為 1 個英文字加 10 位數字）。",notFound:"查無此單：",
       records:"工時紀錄",empty:"還沒有紀錄。",phasePrep:"前置作業",phaseRun:"上機作業",endPrep:"前置結束，開始上機",endRun:"上機結束",doneAsk:"完成數量",saveEnd:"確認，結束計時",back:"返回",cancelPrep:"掃錯單，取消",finishFirst:"還有一張單在計時中，請先把它結束，才能開始下一張。",needQty:"請輸入完成數量（整數）。",saved:"已記錄，辛苦了！",done:"完成",pcs:"顆",
-      phaseStop:"停機",stop:"停機",resume:"恢復作業",reasonAsk:"停機原因（按一個）",allowLoss:"可損耗",usedLoss:"已損耗",lossAsk:"前置損耗數量",lossHint:"換鋁卷、換碳帶、調機、破包、打印、水測，全部加起來。",lossSave:"確認，開始上機",needLoss:"請輸入損耗數量（整數，沒有就填 0）。",overLoss:"已超過可損耗數量！",pending:"未上傳",logLive:"紀錄會自動上傳；沒有網路時先存在手機，連上網路再補傳。",loss:"損耗",r_material:"等料",r_breakdown:"機器故障",r_break:"休息／用餐",r_quality:"品質問題",r_other:"其他",onDuty:"上班中",clockIn:"上班打卡",clockOut:"下班打卡",pickIn:"誰要上班打卡？點名字",pickOut:"誰要下班打卡？點名字",nobodyIn:"還沒有人上班打卡。",allIn:"大家都已經上班了。",clockedIn:"上班打卡：",clockedOut:"下班打卡：",autoIn:"已自動幫他們上班打卡：",onJob:"還在做工令，請先結束或換人：",jobs:"進行中的工令",noJobs:"目前沒有進行中的工令。掃一張工令開始。",whoAsk:"誰做這張？（可以選好幾個人）",machineAsk:"機台",noMachine:"（不選）",startJob:"開始計時",saveCrew:"確認換人",needWho:"請至少選一個人。",changeCrew:"換人／換機台",hideOrder:"收起",fMach:"機台",fPeople:"作業人員",noStaff:"讀不到人員名單，請確認網路後重新打開。",offDuty:"未打卡",inProgress:"進行中",min:"分鐘",
+      phaseStop:"停機",stop:"停機",resume:"恢復作業",reasonAsk:"停機原因（按一個）",allowLoss:"可損耗",usedLoss:"已損耗",lossAsk:"前置損耗數量",lossHint:"換鋁卷、換碳帶、調機、破包、打印、水測，全部加起來。",lossSave:"確認，開始上機",needLoss:"請輸入損耗數量（整數，沒有就填 0）。",overLoss:"已超過可損耗數量！",pending:"未上傳",logLive:"紀錄會自動上傳；沒有網路時先存在手機，連上網路再補傳。",loss:"損耗",r_material:"等料",r_breakdown:"機器故障",r_break:"休息／用餐",r_quality:"品質問題",r_other:"其他",jobs:"進行中的工令",noJobs:"目前沒有進行中的工令。掃一張工令開始。",whoAsk:"誰做這張？（可以選好幾個人）",machineAsk:"機台",noMachine:"（不選）",startJob:"開始計時",saveCrew:"確認換人",needWho:"請至少選一個人。",changeCrew:"換人／換機台",hideOrder:"收起",fMach:"機台",fPeople:"作業人員",noStaff:"讀不到人員名單，請確認網路後重新打開。",inProgress:"進行中",min:"分鐘",
       sheetNote:"用電腦開這一頁，再用手機的「掃描」頁對著螢幕拍照。全部是編造的測試資料。",
       slipNo:"工令單號",slipQty:"數量"},
   vi:{title:"Quét lệnh sản xuất",demo:"Bản thử・Dữ liệu giả",tabScan:"Quét",tabSheet:"Phiếu thử",scan:"Chụp ảnh thay thế",live:"Quét phiếu",aim:"Đưa mã vạch “工令單號” vào khung",checking:"Đã đọc, đang tìm… ",torch:"Đèn pin",closeCam:"Tắt camera",camErr:"Không mở được camera. Hãy cho phép dùng camera, hoặc chụp ảnh.",tryPhoto:"Không quét được? Hãy bấm “Chụp ảnh thay thế” bên dưới.",find:"Tìm",pinAsk:"Nhập mật khẩu nhà máy (chỉ một lần)",ok:"OK",badPin:"Mật khẩu nhà máy không đúng, hãy nhập lại.",netErr:"Không kết nối được dữ liệu. Kiểm tra mạng rồi thử lại.",live1:"Bản thử",
@@ -325,7 +311,7 @@ const T = {
       busy:"Đang đọc…",noCode:"Không đọc được mã vạch số lệnh. Hãy chụp rõ và thẳng mã vạch “工令單號”, rồi thử lại.",
       badFormat:"Đây không phải số lệnh SX (1 chữ cái + 10 chữ số).",notFound:"Không tìm thấy phiếu: ",
       records:"Nhật ký giờ làm",empty:"Chưa có dữ liệu.",phasePrep:"Chuẩn bị",phaseRun:"Chạy máy",endPrep:"Xong chuẩn bị, bắt đầu chạy máy",endRun:"Kết thúc chạy máy",doneAsk:"Số lượng hoàn thành",saveEnd:"Xác nhận, dừng tính giờ",back:"Quay lại",cancelPrep:"Quét nhầm phiếu, hủy",finishFirst:"Còn một phiếu đang tính giờ. Hãy kết thúc phiếu đó trước khi bắt đầu phiếu mới.",needQty:"Hãy nhập số lượng hoàn thành (số nguyên).",saved:"Đã lưu. Cảm ơn bạn!",done:"Hoàn thành",pcs:"viên",
-      phaseStop:"Dừng máy",stop:"Dừng máy",resume:"Tiếp tục làm",reasonAsk:"Lý do dừng máy (chọn một)",allowLoss:"Hao hụt cho phép",usedLoss:"Đã hao hụt",lossAsk:"Số hao hụt khi chuẩn bị",lossHint:"Cộng tất cả: thay cuộn nhôm, thay ruy băng mực, chỉnh máy, rách gói, in, thử nước.",lossSave:"Xác nhận, bắt đầu chạy máy",needLoss:"Hãy nhập số hao hụt (số nguyên, không có thì nhập 0).",overLoss:"Đã vượt mức hao hụt cho phép!",pending:"Chưa gửi",logLive:"Dữ liệu tự động gửi lên; khi không có mạng sẽ lưu trên điện thoại và gửi lại khi có mạng.",loss:"Hao hụt",r_material:"Chờ nguyên liệu",r_breakdown:"Máy hỏng",r_break:"Nghỉ / ăn cơm",r_quality:"Vấn đề chất lượng",r_other:"Khác",onDuty:"Đang làm việc",clockIn:"Chấm công vào",clockOut:"Chấm công ra",pickIn:"Ai chấm công vào? Bấm tên",pickOut:"Ai chấm công ra? Bấm tên",nobodyIn:"Chưa có ai chấm công vào.",allIn:"Mọi người đều đã vào làm.",clockedIn:"Đã chấm công vào: ",clockedOut:"Đã chấm công ra: ",autoIn:"Đã tự chấm công vào cho: ",onJob:"Vẫn đang làm phiếu, hãy kết thúc hoặc đổi người trước: ",jobs:"Lệnh đang làm",noJobs:"Hiện chưa có lệnh nào. Quét một phiếu để bắt đầu.",whoAsk:"Ai làm phiếu này? (có thể chọn nhiều người)",machineAsk:"Máy",noMachine:"(không chọn)",startJob:"Bắt đầu tính giờ",saveCrew:"Xác nhận đổi người",needWho:"Hãy chọn ít nhất một người.",changeCrew:"Đổi người / đổi máy",hideOrder:"Thu gọn",fMach:"Máy",fPeople:"Người làm",noStaff:"Không tải được danh sách nhân viên, hãy kiểm tra mạng rồi mở lại.",offDuty:"chưa chấm công",inProgress:"Đang làm",min:"phút",
+      phaseStop:"Dừng máy",stop:"Dừng máy",resume:"Tiếp tục làm",reasonAsk:"Lý do dừng máy (chọn một)",allowLoss:"Hao hụt cho phép",usedLoss:"Đã hao hụt",lossAsk:"Số hao hụt khi chuẩn bị",lossHint:"Cộng tất cả: thay cuộn nhôm, thay ruy băng mực, chỉnh máy, rách gói, in, thử nước.",lossSave:"Xác nhận, bắt đầu chạy máy",needLoss:"Hãy nhập số hao hụt (số nguyên, không có thì nhập 0).",overLoss:"Đã vượt mức hao hụt cho phép!",pending:"Chưa gửi",logLive:"Dữ liệu tự động gửi lên; khi không có mạng sẽ lưu trên điện thoại và gửi lại khi có mạng.",loss:"Hao hụt",r_material:"Chờ nguyên liệu",r_breakdown:"Máy hỏng",r_break:"Nghỉ / ăn cơm",r_quality:"Vấn đề chất lượng",r_other:"Khác",jobs:"Lệnh đang làm",noJobs:"Hiện chưa có lệnh nào. Quét một phiếu để bắt đầu.",whoAsk:"Ai làm phiếu này? (có thể chọn nhiều người)",machineAsk:"Máy",noMachine:"(không chọn)",startJob:"Bắt đầu tính giờ",saveCrew:"Xác nhận đổi người",needWho:"Hãy chọn ít nhất một người.",changeCrew:"Đổi người / đổi máy",hideOrder:"Thu gọn",fMach:"Máy",fPeople:"Người làm",noStaff:"Không tải được danh sách nhân viên, hãy kiểm tra mạng rồi mở lại.",inProgress:"Đang làm",min:"phút",
       sheetNote:"Mở trang này trên máy tính, rồi dùng trang “Quét” trên điện thoại để chụp màn hình. Dữ liệu đều là giả.",
       slipNo:"Số lệnh SX",slipQty:"Số lượng"},
 };
@@ -341,7 +327,7 @@ function applyLang(){
   renderReasons();
   $("t-title").textContent=t("title"); $("t-demo").textContent=t(DEMO?"demo":"live1");
   document.querySelectorAll(".lang button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.lang===lang));
-  showOrder(); renderLog(); renderSlips(); renderJobs(); renderDuty();
+  showOrder(); renderLog(); renderSlips(); renderJobs();
   if(lastMsg) say(lastMsg.key,lastMsg.extra,lastMsg.cls);
 }
 document.querySelectorAll(".lang button").forEach(b=>b.onclick=()=>{lang=b.dataset.lang;store.set("lang",lang);applyLang()});
@@ -580,42 +566,14 @@ if(NativeScanner&&!navigator.mediaDevices?.getUserMedia){
   document.addEventListener("visibilitychange",()=>{if(document.hidden&&nativeOn)stopNative()});
 }
 
-// ---- Who is working: clock in / out ----
-// One phone per workroom, shared by everyone in it. People clock in and out here (this is meant to replace the time clock),
-// and every job records who really works on it, so hours can be counted per person.
+// ---- Who is working ----
+// One phone per workroom, shared by everyone in it. There is no clocking in: a person's hours are the 前置／上機／停機 time
+// of the jobs they were on, so every job records who really works on it.
 let staff=store.get("staff",DEMO?DEMO_STAFF:{people:[],machines:[]});
-let duty=store.get("duty",{});                  // name -> clocked in at (ms)
-let outbox=store.get("outbox",[]).map(x=>x.kind?x:{kind:"work",...x});   // waiting for the backend: work segments and clock events
+let recent=store.get("recent",[]);              // names picked lately on this phone, shown first
+// waiting for the backend (work segments); clock events from the short-lived clock-in version are dropped
+let outbox=store.get("outbox",[]).map(x=>x.kind?x:{kind:"work",...x}).filter(x=>x.kind==="work");
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
-function clockEv(name,type,at){
-  if(type==="in") duty[name]=at; else delete duty[name];
-  if(!DEMO) outbox.push({kind:"clock",id:uid(),name,type,at});
-}
-let picking=null;                               // "in" | "out" while the name grid is open
-function renderDuty(){
-  const box=$("dutyList"); box.textContent="";
-  const names=Object.keys(duty).sort((a,b)=>duty[a]-duty[b]);
-  if(!names.length){box.append(div("empty",t("nobodyIn")))}
-  for(const n of names){const c=document.createElement("span");c.className="chip";c.append(n," ");const sm=document.createElement("small");sm.textContent=hm(duty[n]);c.append(sm);box.append(c)}
-  $("namePanel").hidden=!picking;
-  if(!picking) return;
-  $("nameAsk").textContent=t(picking==="in"?"pickIn":"pickOut");
-  const grid=$("nameGrid"); grid.textContent="";
-  const list=picking==="in"?staff.people.filter(n=>!(n in duty)):names;
-  if(!list.length) grid.append(div("empty",t(picking==="in"?(staff.people.length?"allIn":"noStaff"):"nobodyIn")));
-  for(const n of list){const b=document.createElement("button");b.className="chip";b.textContent=n;b.onclick=()=>pickName(n);grid.append(b)}
-}
-function pickName(n){
-  if(picking==="out"){
-    const busy=jobs.find(j=>j.people.includes(n));
-    if(busy){say("onJob",n+" → "+busy.no);return}
-    clockEv(n,"out",Date.now()); say("clockedOut",n,"ok");
-  }else{clockEv(n,"in",Date.now()); say("clockedIn",n,"ok")}
-  picking=null; save(); flush();
-}
-$("clockInBtn").onclick=()=>{picking=picking==="in"?null:"in";renderDuty()};
-$("clockOutBtn").onclick=()=>{picking=picking==="out"?null:"out";renderDuty()};
-$("nameBack").onclick=()=>{picking=null;renderDuty()};
 
 // ---- Jobs + phase timer ----
 // Several jobs can run at once (one per machine). Stages: 前置 (prep) → 上機 (run); 停機 (stop, with a reason) can interrupt
@@ -634,7 +592,7 @@ let jobs=store.get("jobs",null);                // [{id,no,o,phase,start,people,
 if(!jobs){const r=store.get("running",null); jobs=r?[{id:uid(),people:[],machine:"",...r,phase:r.phase||"prep"}]:[]}   // older single-job version
 for(const j of jobs) if(j.o) orders.set(j.no,j.o);
 let log=store.get("log",[]).map(r=>({phase:"run",...r}));   // newest first: [{id,no,name,unit,phase,start,end,people,machine,reason?,loss?,done?,sent?}]
-function save(){store.set("jobs",jobs);store.set("duty",duty);store.set("log",log);store.set("outbox",outbox);try{localStorage.removeItem("running")}catch{};renderLog();renderJobs();renderDuty()}
+function save(){store.set("jobs",jobs);store.set("recent",recent);store.set("log",log);store.set("outbox",outbox);try{localStorage.removeItem("running");localStorage.removeItem("duty")}catch{};renderLog();renderJobs()}
 const job=()=>jobs.find(j=>j.id===current);
 const allowOf=o=>Number.isFinite(Number(o?.qty))?Math.floor(Number(o.qty)*LOSS_RATE):null;
 function usedOf(no){                             // loss so far: the backend's total when the order was looked up + what this phone added since
@@ -642,7 +600,7 @@ function usedOf(no){                             // loss so far: the backend's t
   return (Number(o?.loss)||0)+log.filter(r=>r.no===no&&r.loss&&r.end>at).reduce((a,r)=>a+r.loss,0);
 }
 function open(no){
-  hush(); $("manualNo").value=""; picking=null; renderDuty();
+  hush(); $("manualNo").value="";
   const j=jobs.find(x=>x.no===no);
   if(j){current=j.id;pendingNo=null;ask=null}
   else{current=null;pendingNo=no;askCrew()}
@@ -658,15 +616,14 @@ function showOrder(){
   syncTimer();
 }
 function closeOrder(){current=null;pendingNo=null;ask=null;$("order").hidden=true;syncTimer();renderJobs()}
-// Crew picker: everyone on duty first (then the rest), preselected from the job or from the 工廠管理 table's plan.
+// Crew picker: names used lately on this phone first, preselected from the job or from the 工廠管理 table's plan.
 function askCrew(){
   const j=job(), o=orders.get(j?j.no:pendingNo);
-  const chosen=new Set(j?j.people:(o?.people||[]).filter(n=>n in duty));
+  const chosen=new Set(j?j.people:(o?.people||[]));
   const box=$("crewPeople"); box.textContent="";
-  const names=[...Object.keys(duty),...staff.people.filter(n=>!(n in duty))];
+  const names=[...recent.filter(n=>staff.people.includes(n)),...staff.people];
   for(const n of new Set([...names,...chosen])){
     const b=document.createElement("button");b.className="chip";b.textContent=n;b.setAttribute("aria-pressed",chosen.has(n));
-    if(!(n in duty)){const sm=document.createElement("small");sm.textContent="("+t("offDuty")+")";b.append(" ",sm)}
     b.onclick=()=>{b.setAttribute("aria-pressed",b.getAttribute("aria-pressed")!=="true");$("crewErr").hidden=true};
     box.append(b);
   }
@@ -680,7 +637,7 @@ $("crewSave").onclick=()=>{
   const people=[...$("crewPeople").querySelectorAll('[aria-pressed="true"]')].map(b=>b.firstChild.textContent);
   if(!people.length){$("crewErr").hidden=false;return}
   const now=Date.now(), machine=$("crewMachine").value;
-  const auto=people.filter(n=>!(n in duty)); auto.forEach(n=>clockEv(n,"in",now));   // working means being at work: clock them in
+  recent=[...people,...recent.filter(n=>!people.includes(n))].slice(0,30);
   const j=job();
   if(j){ if(people.join()!==j.people.join()||machine!==j.machine) record(j,now,{},{...j,people,machine,start:now,phaseStart:j.phaseStart||j.start,scanned:false}); else{ask=null;syncTimer()} }
   else{
@@ -688,7 +645,6 @@ $("crewSave").onclick=()=>{
     const nj={id:uid(),no:pendingNo,o,phase:o?.prepped||log.some(r=>r.no===pendingNo&&r.phase==="prep")?"run":"prep",start:now,people,machine,scanned:true};
     jobs.push(nj); current=nj.id; pendingNo=null; ask=null; save(); showOrder();
   }
-  if(auto.length) say("autoIn",auto.join("、"),"ok");
   flush();
 };
 $("crewBack").onclick=()=>{ if(job()){ask=null;syncTimer()} else closeOrder() };
@@ -772,8 +728,7 @@ async function flush(){
     while(outbox.length){
       const item=outbox[0];
       let body;
-      if(item.kind==="clock"){const {kind,...ev}=item; body={action:"clock",ev}}
-      else{const {kind,name,unit,sent,...seg}=item; body={action:"work",seg}}
+      const {kind,name,unit,sent,...seg}=item; body={action:"work",seg};
       let res; try{res=await (await fetch(API,{method:"POST",body:JSON.stringify({pin,...body})})).json()}catch(e){break}
       if(res.ok||res.error==="not_found"||res.error==="bad_format"){   // accepted, or an order that does not exist: do not keep retrying it
         outbox.shift(); const l=log.find(r=>r.id===item.id); if(l) l.sent=!!res.ok; save();
@@ -841,18 +796,12 @@ $("pinInput").addEventListener("keydown",e=>{if(e.key==="Enter")$("pinGo").click
 if(!DEMO){ $("tab-sheet").hidden=true; document.querySelector(".tabs").style.gridTemplateColumns="1fr"; if(!store.get("pin","")) showPin() }
 
 applyLang(); flush(); loadStaff();
-// Staff and machine names (kept for offline use), and who is clocked in according to the backend (another phone, or data cleared).
+// Staff and machine names, kept for offline use.
 async function loadStaff(){
   if(DEMO) return; const pin=store.get("pin",""); if(!pin) return;
   try{
-    const [a,b]=await Promise.all(["people","clocked"].map(async action=>(await fetch(API+"?action="+action+"&pin="+encodeURIComponent(pin))).json()));
+    const a=await (await fetch(API+"?action=people&pin="+encodeURIComponent(pin))).json();
     if(a.ok){staff={people:a.people||[],machines:(a.machines||[]).filter(m=>!/膠囊|打排/.test(m))};store.set("staff",staff)}
-    if(b.ok&&!outbox.some(x=>x.kind==="clock")){                 // nothing of ours still waiting: the backend's list is up to date
-      const d={}; for(const r of b.on||[]) d[r.name]=duty[r.name]||Date.parse(r.since.replace(" ","T")+"+08:00")||Date.now();
-      for(const j of jobs) for(const n of j.people) if(!(n in d)&&n in duty) d[n]=duty[n];
-      duty=d; save();
-    }
-    renderDuty();
   }catch(e){}
 }
 if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});

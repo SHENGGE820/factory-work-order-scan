@@ -231,18 +231,9 @@ assert.equal(post({ action: 'work', seg: { id: 'x', no: 'V1150831005', phase: 'r
 assert.equal(post({ action: 'work', seg: { id: 'x', no: 'V1150831005', phase: 'prep', start: T0, end: T0 + M, loss: -3 } }).error, 'bad_request');
 assert.equal(post({ action: 'work', seg: { id: 'x', no: 'V1150831999', phase: 'run', start: T0, end: T0 + M } }).error, 'not_found');
 
-// staff list for the shared phone, and clocking in / out
+// staff list for the shared phone
 assert.deepEqual(get({ action: 'people' }).people, ['小明', '小華']);
 assert.deepEqual(get({ action: 'people' }).machines, ['240kg混料', '100kg混料', '小粉包機-1']);
-const now = Date.now();
-assert.equal(post({ action: 'clock', ev: { id: 'c1', name: '小明', type: 'in', at: now } }).ok, true);
-assert.equal(post({ action: 'clock', ev: { id: 'c1', name: '小明', type: 'in', at: now } }).ok, true); // resent: not doubled
-assert.equal(post({ action: 'clock', ev: { id: 'c2', name: '小華', type: 'in', at: now } }).ok, true);
-const cs = dbBook.getSheetByName('打卡紀錄');
-assert.equal(cs.rows.length, 3);
-assert.deepEqual(cs.rows[1].slice(1, 3), ['小明', '上班']);
-assert.equal(post({ action: 'clock', ev: { id: 'c3', name: '小明', type: 'lunch', at: now } }).error, 'bad_request');
-assert.equal(post({ action: 'clock', ev: { id: 'c4', name: '', type: 'in', at: now } }).error, 'bad_request');
 
 // the plan index is cached in chunks, so a big sheet still fits and the second lookup skips the sheet
 cache.clear();

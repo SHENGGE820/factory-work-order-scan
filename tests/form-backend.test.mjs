@@ -106,7 +106,8 @@ assert.equal(post({ action: 'nope' }).error, 'bad_request');
 
 // the phone lookup gives only the four fields (plus the rework flag), never the table-only ones
 const one = get({ no: 'V1150831005' }).order;
-assert.deepEqual(Object.keys(one).sort(), ['code', 'loss', 'name', 'no', 'prepped', 'qty', 'rework', 'unit']);
+assert.deepEqual(Object.keys(one).sort(), ['code', 'loss', 'machine', 'name', 'no', 'people', 'prepped', 'qty', 'rework', 'unit']);
+assert.equal(one.machine, ''); assert.deepEqual(one.people, []);
 assert.equal(one.prepped, false);
 assert.equal(one.loss, 0);
 assert.equal(one.name, '2M_西洋梨型 裸包 (每包3公克)');
@@ -217,6 +218,11 @@ assert.equal(tr['損耗'], '50'); assert.equal(tr['可損耗'], '180'); assert.e
 assert.equal(tr['實際用時(時)'], '2'); assert.equal(tr['實際用時(分)'], '5');
 assert.equal(tr['製造日期'], '2026-10-14'); assert.equal(tr['完工時間'], '2026-10-14');
 assert.equal(tr['機台'], '小粉包機-1'); // the table's own fields stay
+assert.equal(get({ no: 'V1150831005' }).order.machine, '小粉包機-1');
+assert.deepEqual(get({ no: 'V1150831005' }).order.people, ['小明', '小華']);
+// a segment that says who really worked and on which machine wins over the table's plan
+post({ action: 'work', seg: { id: 's5', no: 'V1150831005', phase: 'run', start: T0 + 130 * M, end: T0 + 140 * M, people: ['小華'], machine: '小粉包機-2' } });
+assert.deepEqual(ws.rows[5].slice(10, 12), ['小粉包機-2', '小華']);
 const again = get({ no: 'V1150831005' }).order;
 assert.equal(again.prepped, true); assert.equal(again.loss, 50);
 // bad segments are refused
@@ -224,6 +230,19 @@ assert.equal(post({ action: 'work', seg: { id: 'x', no: 'V1150831005', phase: 'l
 assert.equal(post({ action: 'work', seg: { id: 'x', no: 'V1150831005', phase: 'run', start: T0 + M, end: T0 } }).error, 'bad_request');
 assert.equal(post({ action: 'work', seg: { id: 'x', no: 'V1150831005', phase: 'prep', start: T0, end: T0 + M, loss: -3 } }).error, 'bad_request');
 assert.equal(post({ action: 'work', seg: { id: 'x', no: 'V1150831999', phase: 'run', start: T0, end: T0 + M } }).error, 'not_found');
+
+// staff list for the shared phone, and clocking in / out
+assert.deepEqual(get({ action: 'people' }).people, ['小明', '小華']);
+assert.deepEqual(get({ action: 'people' }).machines, ['240kg混料', '100kg混料', '小粉包機-1']);
+const now = Date.now();
+assert.equal(post({ action: 'clock', ev: { id: 'c1', name: '小明', type: 'in', at: now } }).ok, true);
+assert.equal(post({ action: 'clock', ev: { id: 'c1', name: '小明', type: 'in', at: now } }).ok, true); // resent: not doubled
+assert.equal(post({ action: 'clock', ev: { id: 'c2', name: '小華', type: 'in', at: now } }).ok, true);
+const cs = dbBook.getSheetByName('打卡紀錄');
+assert.equal(cs.rows.length, 3);
+assert.deepEqual(cs.rows[1].slice(1, 3), ['小明', '上班']);
+assert.equal(post({ action: 'clock', ev: { id: 'c3', name: '小明', type: 'lunch', at: now } }).error, 'bad_request');
+assert.equal(post({ action: 'clock', ev: { id: 'c4', name: '', type: 'in', at: now } }).error, 'bad_request');
 
 // the plan index is cached in chunks, so a big sheet still fits and the second lookup skips the sheet
 cache.clear();

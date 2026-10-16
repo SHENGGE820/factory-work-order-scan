@@ -82,6 +82,23 @@ h1{font-size:20px;margin:0;text-wrap:balance}
 .reasons{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .reasons .btn{min-height:60px;font-size:17px}
 .pend{color:var(--stop);font-weight:700}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{all:unset;cursor:pointer;box-sizing:border-box;min-height:48px;padding:8px 16px;border:1px solid var(--line);border-radius:999px;background:var(--surface);font-size:17px;font-weight:600;display:inline-flex;align-items:center;gap:6px}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.chip small{font-weight:400;opacity:.75;font-size:13px}
+.chip:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.duty .chip{cursor:default;min-height:40px;font-size:16px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.two .btn{min-height:52px;font-size:17px}
+.job{all:unset;cursor:pointer;box-sizing:border-box;display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:12px;border-radius:10px;border:1px solid var(--line);border-left:6px solid var(--warn-ink);background:var(--bg)}
+.job[data-phase="run"]{border-left-color:var(--go)}
+.job[data-phase="stop"]{border-left-color:var(--stop)}
+.job[aria-current="true"]{outline:3px solid var(--accent)}
+.job .m{font-weight:700}
+.job .c{font-family:var(--font-mono);font-size:20px;font-weight:600;text-align:right}
+.job .s{font-size:13px;color:var(--muted)}
+.jobs{display:flex;flex-direction:column;gap:8px}
+select.big{font:inherit;font-size:18px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);width:100%}
 .phase-name{font-size:20px;font-weight:700}
 .clock{font-size:44px;font-weight:600;color:var(--ink)}
 .done{display:flex;flex-direction:column;gap:10px}
@@ -93,6 +110,7 @@ h1{font-size:20px;margin:0;text-wrap:balance}
 .group .head{font-weight:700}
 .group .sum{font-size:14px;font-weight:600;margin-top:2px}
 .group .row{padding:6px 0 6px 12px;border-top:1px dashed var(--line);font-size:14px}
+.h2{font-size:15px;margin:0;color:var(--muted);font-weight:600}
 .log h2,.sheet h2{font-size:15px;margin:0 0 6px;color:var(--muted);font-weight:600}
 .row{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:10px 0;border-top:1px solid var(--line)}
 .row .r{text-align:right}
@@ -139,6 +157,23 @@ html.native-scanning body{visibility:hidden}
         <button class="btn btn-ghost" id="pinGo" data-t="ok">確定</button>
       </div>
     </section>
+    <section class="panel" id="dutyPanel">
+      <h2 class="h2" data-t="onDuty">上班中</h2>
+      <div class="chips duty" id="dutyList"></div>
+      <div class="two">
+        <button class="btn btn-ghost" id="clockInBtn" data-t="clockIn">上班打卡</button>
+        <button class="btn btn-ghost" id="clockOutBtn" data-t="clockOut">下班打卡</button>
+      </div>
+      <div class="done" id="namePanel" hidden>
+        <label id="nameAsk"></label>
+        <div class="chips" id="nameGrid"></div>
+        <button class="btn btn-ghost" id="nameBack" data-t="back">返回</button>
+      </div>
+    </section>
+    <section class="panel" id="jobsPanel">
+      <h2 class="h2" data-t="jobs">進行中的工令</h2>
+      <div class="jobs" id="jobList"></div>
+    </section>
     <section class="panel" id="scanPanel">
       <button class="btn btn-scan" id="liveBtn"><span aria-hidden="true">▮▯▮▮▯▮</span><span data-t="live">掃描工令單</span></button>
       <div class="viewer" id="viewer" hidden>
@@ -165,7 +200,18 @@ html.native-scanning body{visibility:hidden}
         <dt data-t="fName">產品名稱</dt><dd id="oName"></dd>
         <dt data-t="fCode">產品編號</dt><dd class="mono" id="oCode"></dd>
         <dt data-t="fQty">數量</dt><dd id="oQty"></dd>
+        <dt data-t="fMach" id="oMachL" hidden>機台</dt><dd id="oMach" hidden></dd>
+        <dt data-t="fPeople" id="oPeopleL" hidden>作業人員</dt><dd id="oPeople" hidden></dd>
       </dl>
+      <div class="done" id="crewPanel" hidden>
+        <label data-t="whoAsk">誰做這張？</label>
+        <div class="chips" id="crewPeople"></div>
+        <label for="crewMachine" data-t="machineAsk">機台</label>
+        <select id="crewMachine" class="big"></select>
+        <div id="crewErr" class="msg err" data-t="needWho" hidden></div>
+        <button class="btn btn-go" id="crewSave"></button>
+        <button class="btn btn-ghost" id="crewBack" data-t="back">返回</button>
+      </div>
       <div class="lossbox" id="lossBox" hidden><span><span data-t="allowLoss">可損耗</span> <b id="allowLoss"></b></span><span><span data-t="usedLoss">已損耗</span> <b id="usedLoss"></b></span></div>
       <div class="phase" id="phase" hidden>
         <div class="phase-name" id="phaseName"></div>
@@ -196,7 +242,9 @@ html.native-scanning body{visibility:hidden}
         <button class="btn btn-stop" id="saveBtn" data-t="saveEnd">確認，結束計時</button>
         <button class="btn btn-ghost" id="backBtn" data-t="back">返回</button>
       </div>
+      <button class="btn btn-ghost" id="crewBtn" data-t="changeCrew" hidden>換人／換機台</button>
       <button class="btn btn-ghost" id="cancelBtn" data-t="cancelPrep" hidden>掃錯單，取消</button>
+      <button class="btn btn-ghost" id="hideBtn" data-t="hideOrder" hidden>收起</button>
     </section>
 
     <section class="panel log">
@@ -236,6 +284,7 @@ const ORDERS = [
   {no:"V1150103005", code:"4100000000059", name:"測試品_鈣片 錠劑 排裝(每排10錠)", qty:3000, unit:"排"},
   {no:"X1150103006", code:"4100000000066", name:"測試品_膠原蛋白 粉包 盒裝(每盒15包)", qty:450, unit:"盒", rework:true},
 ];
+const DEMO_STAFF = {people:["測試甲","測試乙","測試丙","測試丁"], machines:["小粉包機-1","小粉包機-2","240kg混料"]};
 const FORMAT = /^[A-Z]\d{10}$/;          // 1 letter + 10 digits
 const API = location.hash==="#demo" ? "" : (window.APP_CONFIG?.sheetApi||"");
 const DEMO = !API;                        // no sheet configured: use the fake orders above
@@ -267,7 +316,7 @@ const T = {
       busy:"讀取中…",noCode:"沒有讀到工令單號條碼。請把「工令單號」那條拍清楚、拍正，再試一次。",
       badFormat:"這不是工令單號（應為 1 個英文字加 10 位數字）。",notFound:"查無此單：",
       records:"工時紀錄",empty:"還沒有紀錄。",phasePrep:"前置作業",phaseRun:"上機作業",endPrep:"前置結束，開始上機",endRun:"上機結束",doneAsk:"完成數量",saveEnd:"確認，結束計時",back:"返回",cancelPrep:"掃錯單，取消",finishFirst:"還有一張單在計時中，請先把它結束，才能開始下一張。",needQty:"請輸入完成數量（整數）。",saved:"已記錄，辛苦了！",done:"完成",pcs:"顆",
-      phaseStop:"停機",stop:"停機",resume:"恢復作業",reasonAsk:"停機原因（按一個）",allowLoss:"可損耗",usedLoss:"已損耗",lossAsk:"前置損耗數量",lossHint:"換鋁卷、換碳帶、調機、破包、打印、水測，全部加起來。",lossSave:"確認，開始上機",needLoss:"請輸入損耗數量（整數，沒有就填 0）。",overLoss:"已超過可損耗數量！",pending:"未上傳",logLive:"紀錄會自動上傳；沒有網路時先存在手機，連上網路再補傳。",loss:"損耗",r_material:"等料",r_breakdown:"機器故障",r_break:"休息／用餐",r_quality:"品質問題",r_other:"其他",inProgress:"進行中",min:"分鐘",
+      phaseStop:"停機",stop:"停機",resume:"恢復作業",reasonAsk:"停機原因（按一個）",allowLoss:"可損耗",usedLoss:"已損耗",lossAsk:"前置損耗數量",lossHint:"換鋁卷、換碳帶、調機、破包、打印、水測，全部加起來。",lossSave:"確認，開始上機",needLoss:"請輸入損耗數量（整數，沒有就填 0）。",overLoss:"已超過可損耗數量！",pending:"未上傳",logLive:"紀錄會自動上傳；沒有網路時先存在手機，連上網路再補傳。",loss:"損耗",r_material:"等料",r_breakdown:"機器故障",r_break:"休息／用餐",r_quality:"品質問題",r_other:"其他",onDuty:"上班中",clockIn:"上班打卡",clockOut:"下班打卡",pickIn:"誰要上班打卡？點名字",pickOut:"誰要下班打卡？點名字",nobodyIn:"還沒有人上班打卡。",allIn:"大家都已經上班了。",clockedIn:"上班打卡：",clockedOut:"下班打卡：",autoIn:"已自動幫他們上班打卡：",onJob:"還在做工令，請先結束或換人：",jobs:"進行中的工令",noJobs:"目前沒有進行中的工令。掃一張工令開始。",whoAsk:"誰做這張？（可以選好幾個人）",machineAsk:"機台",noMachine:"（不選）",startJob:"開始計時",saveCrew:"確認換人",needWho:"請至少選一個人。",changeCrew:"換人／換機台",hideOrder:"收起",fMach:"機台",fPeople:"作業人員",noStaff:"讀不到人員名單，請確認網路後重新打開。",offDuty:"未打卡",inProgress:"進行中",min:"分鐘",
       sheetNote:"用電腦開這一頁，再用手機的「掃描」頁對著螢幕拍照。全部是編造的測試資料。",
       slipNo:"工令單號",slipQty:"數量"},
   vi:{title:"Quét lệnh sản xuất",demo:"Bản thử・Dữ liệu giả",tabScan:"Quét",tabSheet:"Phiếu thử",scan:"Chụp ảnh thay thế",live:"Quét phiếu",aim:"Đưa mã vạch “工令單號” vào khung",checking:"Đã đọc, đang tìm… ",torch:"Đèn pin",closeCam:"Tắt camera",camErr:"Không mở được camera. Hãy cho phép dùng camera, hoặc chụp ảnh.",tryPhoto:"Không quét được? Hãy bấm “Chụp ảnh thay thế” bên dưới.",find:"Tìm",pinAsk:"Nhập mật khẩu nhà máy (chỉ một lần)",ok:"OK",badPin:"Mật khẩu nhà máy không đúng, hãy nhập lại.",netErr:"Không kết nối được dữ liệu. Kiểm tra mạng rồi thử lại.",live1:"Bản thử",
@@ -276,7 +325,7 @@ const T = {
       busy:"Đang đọc…",noCode:"Không đọc được mã vạch số lệnh. Hãy chụp rõ và thẳng mã vạch “工令單號”, rồi thử lại.",
       badFormat:"Đây không phải số lệnh SX (1 chữ cái + 10 chữ số).",notFound:"Không tìm thấy phiếu: ",
       records:"Nhật ký giờ làm",empty:"Chưa có dữ liệu.",phasePrep:"Chuẩn bị",phaseRun:"Chạy máy",endPrep:"Xong chuẩn bị, bắt đầu chạy máy",endRun:"Kết thúc chạy máy",doneAsk:"Số lượng hoàn thành",saveEnd:"Xác nhận, dừng tính giờ",back:"Quay lại",cancelPrep:"Quét nhầm phiếu, hủy",finishFirst:"Còn một phiếu đang tính giờ. Hãy kết thúc phiếu đó trước khi bắt đầu phiếu mới.",needQty:"Hãy nhập số lượng hoàn thành (số nguyên).",saved:"Đã lưu. Cảm ơn bạn!",done:"Hoàn thành",pcs:"viên",
-      phaseStop:"Dừng máy",stop:"Dừng máy",resume:"Tiếp tục làm",reasonAsk:"Lý do dừng máy (chọn một)",allowLoss:"Hao hụt cho phép",usedLoss:"Đã hao hụt",lossAsk:"Số hao hụt khi chuẩn bị",lossHint:"Cộng tất cả: thay cuộn nhôm, thay ruy băng mực, chỉnh máy, rách gói, in, thử nước.",lossSave:"Xác nhận, bắt đầu chạy máy",needLoss:"Hãy nhập số hao hụt (số nguyên, không có thì nhập 0).",overLoss:"Đã vượt mức hao hụt cho phép!",pending:"Chưa gửi",logLive:"Dữ liệu tự động gửi lên; khi không có mạng sẽ lưu trên điện thoại và gửi lại khi có mạng.",loss:"Hao hụt",r_material:"Chờ nguyên liệu",r_breakdown:"Máy hỏng",r_break:"Nghỉ / ăn cơm",r_quality:"Vấn đề chất lượng",r_other:"Khác",inProgress:"Đang làm",min:"phút",
+      phaseStop:"Dừng máy",stop:"Dừng máy",resume:"Tiếp tục làm",reasonAsk:"Lý do dừng máy (chọn một)",allowLoss:"Hao hụt cho phép",usedLoss:"Đã hao hụt",lossAsk:"Số hao hụt khi chuẩn bị",lossHint:"Cộng tất cả: thay cuộn nhôm, thay ruy băng mực, chỉnh máy, rách gói, in, thử nước.",lossSave:"Xác nhận, bắt đầu chạy máy",needLoss:"Hãy nhập số hao hụt (số nguyên, không có thì nhập 0).",overLoss:"Đã vượt mức hao hụt cho phép!",pending:"Chưa gửi",logLive:"Dữ liệu tự động gửi lên; khi không có mạng sẽ lưu trên điện thoại và gửi lại khi có mạng.",loss:"Hao hụt",r_material:"Chờ nguyên liệu",r_breakdown:"Máy hỏng",r_break:"Nghỉ / ăn cơm",r_quality:"Vấn đề chất lượng",r_other:"Khác",onDuty:"Đang làm việc",clockIn:"Chấm công vào",clockOut:"Chấm công ra",pickIn:"Ai chấm công vào? Bấm tên",pickOut:"Ai chấm công ra? Bấm tên",nobodyIn:"Chưa có ai chấm công vào.",allIn:"Mọi người đều đã vào làm.",clockedIn:"Đã chấm công vào: ",clockedOut:"Đã chấm công ra: ",autoIn:"Đã tự chấm công vào cho: ",onJob:"Vẫn đang làm phiếu, hãy kết thúc hoặc đổi người trước: ",jobs:"Lệnh đang làm",noJobs:"Hiện chưa có lệnh nào. Quét một phiếu để bắt đầu.",whoAsk:"Ai làm phiếu này? (có thể chọn nhiều người)",machineAsk:"Máy",noMachine:"(không chọn)",startJob:"Bắt đầu tính giờ",saveCrew:"Xác nhận đổi người",needWho:"Hãy chọn ít nhất một người.",changeCrew:"Đổi người / đổi máy",hideOrder:"Thu gọn",fMach:"Máy",fPeople:"Người làm",noStaff:"Không tải được danh sách nhân viên, hãy kiểm tra mạng rồi mở lại.",offDuty:"chưa chấm công",inProgress:"Đang làm",min:"phút",
       sheetNote:"Mở trang này trên máy tính, rồi dùng trang “Quét” trên điện thoại để chụp màn hình. Dữ liệu đều là giả.",
       slipNo:"Số lệnh SX",slipQty:"Số lượng"},
 };
@@ -292,7 +341,7 @@ function applyLang(){
   renderReasons();
   $("t-title").textContent=t("title"); $("t-demo").textContent=t(DEMO?"demo":"live1");
   document.querySelectorAll(".lang button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.lang===lang));
-  if(current) showOrder(current); renderLog(); renderSlips();
+  showOrder(); renderLog(); renderSlips(); renderJobs(); renderDuty();
   if(lastMsg) say(lastMsg.key,lastMsg.extra,lastMsg.cls);
 }
 document.querySelectorAll(".lang button").forEach(b=>b.onclick=()=>{lang=b.dataset.lang;store.set("lang",lang);applyLang()});
@@ -531,90 +580,187 @@ if(NativeScanner&&!navigator.mediaDevices?.getUserMedia){
   document.addEventListener("visibilitychange",()=>{if(document.hidden&&nativeOn)stopNative()});
 }
 
-// ---- Order + phase timer ----
-// One job at a time. Stages: 前置 (prep) → 上機 (run); 停機 (stop, with a reason) can interrupt either and goes back to it.
-// Scanning starts 前置, or 上機 directly for an order that already had its 前置. Ending 前置 asks for the loss of the whole
-// 前置 (換鋁卷、換碳帶、調機、破包、打印、水測); ending 上機 asks for the finished count.
+// ---- Who is working: clock in / out ----
+// One phone per workroom, shared by everyone in it. People clock in and out here (this is meant to replace the time clock),
+// and every job records who really works on it, so hours can be counted per person.
+let staff=store.get("staff",DEMO?DEMO_STAFF:{people:[],machines:[]});
+let duty=store.get("duty",{});                  // name -> clocked in at (ms)
+let outbox=store.get("outbox",[]).map(x=>x.kind?x:{kind:"work",...x});   // waiting for the backend: work segments and clock events
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+function clockEv(name,type,at){
+  if(type==="in") duty[name]=at; else delete duty[name];
+  if(!DEMO) outbox.push({kind:"clock",id:uid(),name,type,at});
+}
+let picking=null;                               // "in" | "out" while the name grid is open
+function renderDuty(){
+  const box=$("dutyList"); box.textContent="";
+  const names=Object.keys(duty).sort((a,b)=>duty[a]-duty[b]);
+  if(!names.length){box.append(div("empty",t("nobodyIn")))}
+  for(const n of names){const c=document.createElement("span");c.className="chip";c.append(n," ");const sm=document.createElement("small");sm.textContent=hm(duty[n]);c.append(sm);box.append(c)}
+  $("namePanel").hidden=!picking;
+  if(!picking) return;
+  $("nameAsk").textContent=t(picking==="in"?"pickIn":"pickOut");
+  const grid=$("nameGrid"); grid.textContent="";
+  const list=picking==="in"?staff.people.filter(n=>!(n in duty)):names;
+  if(!list.length) grid.append(div("empty",t(picking==="in"?(staff.people.length?"allIn":"noStaff"):"nobodyIn")));
+  for(const n of list){const b=document.createElement("button");b.className="chip";b.textContent=n;b.onclick=()=>pickName(n);grid.append(b)}
+}
+function pickName(n){
+  if(picking==="out"){
+    const busy=jobs.find(j=>j.people.includes(n));
+    if(busy){say("onJob",n+" → "+busy.no);return}
+    clockEv(n,"out",Date.now()); say("clockedOut",n,"ok");
+  }else{clockEv(n,"in",Date.now()); say("clockedIn",n,"ok")}
+  picking=null; save(); flush();
+}
+$("clockInBtn").onclick=()=>{picking=picking==="in"?null:"in";renderDuty()};
+$("clockOutBtn").onclick=()=>{picking=picking==="out"?null:"out";renderDuty()};
+$("nameBack").onclick=()=>{picking=null;renderDuty()};
+
+// ---- Jobs + phase timer ----
+// Several jobs can run at once (one per machine). Stages: 前置 (prep) → 上機 (run); 停機 (stop, with a reason) can interrupt
+// either and goes back to it. A new order first asks who works on it and on which machine, then starts 前置
+// (or 上機 directly when the order already had its 前置). Ending 前置 asks for the loss of the whole 前置
+// (換鋁卷、換碳帶、調機、破包、打印、水測); ending 上機 asks for the finished count. Changing the crew or the machine
+// closes the running segment and starts a new one, so every minute belongs to the right people.
 // Every finished stage is one segment: kept on this phone and (live version) sent to the backend's 工時紀錄 sheet,
 // which adds up the times and loss and writes them into the 工廠管理 table.
 const LOSS_RATE=0.03;                           // allowed loss = order quantity × 3%, rounded down
 const REASONS=["r_material","r_breakdown","r_break","r_quality","r_other"];
 const PH={prep:"phasePrep",run:"phaseRun",stop:"phaseStop"};
-let current=null,timer=null,ask=null;          // ask: which question panel is open ("loss" | "done" | "reason")
-let running=store.get("running",null);   // {no,phase:"prep"|"run"|"stop",start,o,scanned,resume?,reason?}  scanned: started by a scan, may be cancelled
-let log=store.get("log",[]).map(r=>({phase:"run",...r}));   // newest first: [{id,no,name,unit,phase,start,end,reason?,loss?,done?,sent?}]
-let outbox=store.get("outbox",[]);              // segments not yet accepted by the backend
-if(running){running.phase??="prep"; if(running.o) orders.set(running.no,running.o); current=running.no}
-function save(){store.set("running",running);store.set("log",log);store.set("outbox",outbox);renderLog()}
-const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+let current=null,timer=null,ask=null;          // current: the job (or the order waiting for its crew) on screen; ask: "loss" | "done" | "reason" | "crew"
+let pendingNo=null;                             // order scanned, crew not chosen yet
+let jobs=store.get("jobs",null);                // [{id,no,o,phase,start,people,machine,scanned,resume?,reason?}]
+if(!jobs){const r=store.get("running",null); jobs=r?[{id:uid(),people:[],machine:"",...r,phase:r.phase||"prep"}]:[]}   // older single-job version
+for(const j of jobs) if(j.o) orders.set(j.no,j.o);
+let log=store.get("log",[]).map(r=>({phase:"run",...r}));   // newest first: [{id,no,name,unit,phase,start,end,people,machine,reason?,loss?,done?,sent?}]
+function save(){store.set("jobs",jobs);store.set("duty",duty);store.set("log",log);store.set("outbox",outbox);try{localStorage.removeItem("running")}catch{};renderLog();renderJobs();renderDuty()}
+const job=()=>jobs.find(j=>j.id===current);
 const allowOf=o=>Number.isFinite(Number(o?.qty))?Math.floor(Number(o.qty)*LOSS_RATE):null;
 function usedOf(no){                             // loss so far: the backend's total when the order was looked up + what this phone added since
   const o=orders.get(no), at=o?.at||0;
   return (Number(o?.loss)||0)+log.filter(r=>r.no===no&&r.loss&&r.end>at).reduce((a,r)=>a+r.loss,0);
 }
 function open(no){
-  hush(); $("manualNo").value="";
-  if(running&&running.no!==no){no=running.no;say("finishFirst")}
-  else if(!running){const o=orders.get(no);running={no,phase:o?.prepped||log.some(r=>r.no===no&&r.phase==="prep")?"run":"prep",start:Date.now(),o,scanned:true};save()}
-  current=no; showOrder(no); $("order").scrollIntoView({behavior:"smooth",block:"start"});
+  hush(); $("manualNo").value=""; picking=null; renderDuty();
+  const j=jobs.find(x=>x.no===no);
+  if(j){current=j.id;pendingNo=null;ask=null}
+  else{current=null;pendingNo=no;askCrew()}
+  showOrder(); $("order").scrollIntoView({behavior:"smooth",block:"start"});
 }
-function showOrder(no){
-  const o=orders.get(no)||{no,name:running?.name||"",code:"",qty:"",unit:""}; $("order").hidden=false;
+function showOrder(){
+  const j=job(), no=j?j.no:pendingNo; if(!no){$("order").hidden=true;return}
+  const o=orders.get(no)||{no,name:j?.name||"",code:"",qty:"",unit:""}; $("order").hidden=false;
   $("oNo").textContent=o.no; $("oName").textContent=o.name; $("oCode").textContent=o.code;
   $("oQty").textContent=o.qty.toLocaleString()+" "+o.unit;
   if(o.rework){const s=document.createElement("span");s.className="tag";s.textContent=t("rework");$("oNo").append(s)}
+  for(const [k,v] of [["oMach",j?.machine],["oPeople",j?.people.join("、")]]){$(k).textContent=v||"";$(k).hidden=$(k+"L").hidden=!v}
   syncTimer();
 }
-function closeOrder(){current=null;ask=null;$("order").hidden=true;syncTimer()}
+function closeOrder(){current=null;pendingNo=null;ask=null;$("order").hidden=true;syncTimer();renderJobs()}
+// Crew picker: everyone on duty first (then the rest), preselected from the job or from the 工廠管理 table's plan.
+function askCrew(){
+  const j=job(), o=orders.get(j?j.no:pendingNo);
+  const chosen=new Set(j?j.people:(o?.people||[]).filter(n=>n in duty));
+  const box=$("crewPeople"); box.textContent="";
+  const names=[...Object.keys(duty),...staff.people.filter(n=>!(n in duty))];
+  for(const n of new Set([...names,...chosen])){
+    const b=document.createElement("button");b.className="chip";b.textContent=n;b.setAttribute("aria-pressed",chosen.has(n));
+    if(!(n in duty)){const sm=document.createElement("small");sm.textContent="("+t("offDuty")+")";b.append(" ",sm)}
+    b.onclick=()=>{b.setAttribute("aria-pressed",b.getAttribute("aria-pressed")!=="true");$("crewErr").hidden=true};
+    box.append(b);
+  }
+  const sel=$("crewMachine"), want=j?j.machine:(o?.machine||""); sel.textContent=""; sel.append(new Option(t("noMachine"),""));
+  for(const m of new Set([...staff.machines,...(want?[want]:[])])) sel.append(new Option(m,m));
+  sel.value=want;
+  $("crewSave").textContent=t(j?"saveCrew":"startJob"); $("crewErr").hidden=true;
+  ask="crew"; syncTimer();
+}
+$("crewSave").onclick=()=>{
+  const people=[...$("crewPeople").querySelectorAll('[aria-pressed="true"]')].map(b=>b.firstChild.textContent);
+  if(!people.length){$("crewErr").hidden=false;return}
+  const now=Date.now(), machine=$("crewMachine").value;
+  const auto=people.filter(n=>!(n in duty)); auto.forEach(n=>clockEv(n,"in",now));   // working means being at work: clock them in
+  const j=job();
+  if(j){ if(people.join()!==j.people.join()||machine!==j.machine) record(j,now,{},{...j,people,machine,start:now,phaseStart:j.phaseStart||j.start,scanned:false}); else{ask=null;syncTimer()} }
+  else{
+    const o=orders.get(pendingNo);
+    const nj={id:uid(),no:pendingNo,o,phase:o?.prepped||log.some(r=>r.no===pendingNo&&r.phase==="prep")?"run":"prep",start:now,people,machine,scanned:true};
+    jobs.push(nj); current=nj.id; pendingNo=null; ask=null; save(); showOrder();
+  }
+  if(auto.length) say("autoIn",auto.join("、"),"ok");
+  flush();
+};
+$("crewBack").onclick=()=>{ if(job()){ask=null;syncTimer()} else closeOrder() };
+$("crewBtn").onclick=askCrew;
+$("hideBtn").onclick=closeOrder;
 function renderLoss(){
-  const o=orders.get(current), allow=allowOf(o), on=!!current&&allow!=null;
+  const no=job()?.no||pendingNo, o=orders.get(no), allow=allowOf(o), on=!!no&&allow!=null;
   $("lossBox").hidden=!on; if(!on) return;
-  const used=usedOf(current), u=" "+(o.unit||"");
+  const used=usedOf(no), u=" "+(o.unit||"");
   $("allowLoss").textContent=allow.toLocaleString()+u; $("usedLoss").textContent=used.toLocaleString()+u;
   $("lossBox").classList.toggle("over",used>allow); $("lossBox").title=used>allow?t("overLoss"):"";
 }
 function syncTimer(){
-  const on=!!running&&running.no===current, ph=on?running.phase:null, free=on&&!ask;
-  $("phase").hidden=!on;
-  if(on){$("phase").dataset.phase=ph;$("phaseName").textContent=t(PH[ph]);$("phaseReason").textContent=ph==="stop"?t(running.reason):""}
-  $("lossPanel").hidden=ask!=="loss"; $("donePanel").hidden=ask!=="done"; $("reasonPanel").hidden=ask!=="reason";
+  const j=job(), ph=j?j.phase:null, free=!!j&&!ask;
+  $("phase").hidden=!j;
+  if(j){$("phase").dataset.phase=ph;$("phaseName").textContent=t(PH[ph]);$("phaseReason").textContent=ph==="stop"?t(j.reason):""}
+  $("lossPanel").hidden=ask!=="loss"; $("donePanel").hidden=ask!=="done"; $("reasonPanel").hidden=ask!=="reason"; $("crewPanel").hidden=ask!=="crew";
   $("endPrepBtn").hidden=!(free&&ph==="prep"); $("endRunBtn").hidden=!(free&&ph==="run");
   $("stopBtn").hidden=!(free&&ph!=="stop"); $("resumeBtn").hidden=!(free&&ph==="stop");
-  $("cancelBtn").hidden=!(free&&running.scanned);
+  $("crewBtn").hidden=!free; $("hideBtn").hidden=!free;
+  $("cancelBtn").hidden=!(free&&j.scanned);
   renderLoss();
-  clearInterval(timer); if(on){tick();timer=setInterval(tick,1000)}
+  clearInterval(timer); timer=setInterval(tick,1000); tick();
 }
-function tick(){const s=Math.floor((Date.now()-running.start)/1000);$("clock").textContent=[s/3600,s%3600/60,s%60].map(n=>String(Math.floor(n)).padStart(2,"0")).join(":")}
-// Close the stage that is running now as one segment, then carry on with `next` (null = the job is finished).
-function record(end,extra,next){
-  const o=running.o||orders.get(running.no);
-  const seg={id:uid(),no:running.no,name:o?.name||running.name||"",unit:o?.unit||"",phase:running.phase,start:running.start,end,
-    ...(running.phase==="stop"?{reason:running.reason,reasonText:T.zh[running.reason]}:{}),...extra};
-  log.unshift(seg); if(!DEMO) outbox.push(seg);
-  running=next; ask=null; save(); syncTimer(); flush();
+const clockText=ms=>{const s=Math.max(0,Math.floor(ms/1000));return [s/3600,s%3600/60,s%60].map(n=>String(Math.floor(n)).padStart(2,"0")).join(":")};
+function tick(){
+  const j=job(); if(j) $("clock").textContent=clockText(Date.now()-(j.phaseStart||j.start));
+  for(const el of $("jobList").querySelectorAll("[data-job]")){const x=jobs.find(y=>y.id===el.dataset.job); if(x) el.querySelector(".c").textContent=clockText(Date.now()-(x.phaseStart||x.start))}
+}
+function renderJobs(){
+  const box=$("jobList"); box.textContent="";
+  if(!jobs.length){box.append(div("empty",t("noJobs")));return}
+  for(const j of jobs){
+    const b=document.createElement("button");b.className="job";b.dataset.job=j.id;b.dataset.phase=j.phase;b.setAttribute("aria-current",j.id===current);
+    b.append(div("m",(j.machine?j.machine+"・":"")+j.no),div("c",clockText(Date.now()-(j.phaseStart||j.start))),
+      div("s",t(PH[j.phase])+(j.phase==="stop"?"："+t(j.reason):"")+"・"+j.people.join("、")),div("s",""));
+    b.onclick=()=>{hush();current=j.id;pendingNo=null;ask=null;showOrder();renderJobs();$("order").scrollIntoView({behavior:"smooth",block:"start"})};
+    box.append(b);
+  }
+}
+// Close the stage this job is in now as one segment, then carry on with `next` (null = the job is finished).
+function record(j,end,extra,next){
+  const o=j.o||orders.get(j.no);
+  const seg={id:uid(),no:j.no,name:o?.name||j.name||"",unit:o?.unit||"",phase:j.phase,start:j.start,end,people:j.people,machine:j.machine,
+    ...(j.phase==="stop"?{reason:j.reason,reasonText:T.zh[j.reason]}:{}),...extra};
+  log.unshift(seg); if(!DEMO) outbox.push({kind:"work",...seg});
+  const i=jobs.findIndex(x=>x.id===j.id);
+  if(next) jobs[i]=next; else jobs.splice(i,1);
+  ask=null; save(); if(job()) showOrder(); else syncTimer(); flush();
 }
 function renderReasons(){
   const g=$("reasonGrid"); g.textContent="";
   for(const k of REASONS){const b=document.createElement("button");b.className="btn btn-ghost";b.textContent=t(k);b.onclick=()=>{
-    const now=Date.now(); record(now,{},{...running,phase:"stop",resume:running.phase,reason:k,start:now,scanned:false})};g.append(b)}
+    const j=job(), now=Date.now(); record(j,now,{},{...j,phase:"stop",resume:j.phase,reason:k,start:now,phaseStart:now,scanned:false})};g.append(b)}
 }
 const ints=v=>{v=String(v).trim();const n=Number(v);return v!==""&&Number.isInteger(n)&&n>=0?n:null};
 function askFor(which,input){ask=which;syncTimer();if(input){$(input).value="";$(input).focus()}}
 $("endPrepBtn").onclick=()=>{$("lossErr").hidden=true;askFor("loss","lossInput")};
 $("lossSave").onclick=()=>{const n=ints($("lossInput").value); if(n==null){$("lossErr").hidden=false;return}
-  const now=Date.now(); record(now,{loss:n},{...running,phase:"run",start:now,scanned:false})};
+  const j=job(), now=Date.now(); record(j,now,{loss:n},{...j,phase:"run",start:now,phaseStart:now,scanned:false})};
 $("lossInput").addEventListener("keydown",e=>{if(e.key==="Enter")$("lossSave").click()});
 $("stopBtn").onclick=()=>askFor("reason");
-$("resumeBtn").onclick=()=>{const now=Date.now(),{resume,reason,...rest}=running; record(now,{},{...rest,phase:resume||"run",start:now})};
+$("resumeBtn").onclick=()=>{const j=job(), now=Date.now(),{resume,reason,...rest}=j; record(j,now,{},{...rest,phase:resume||"run",start:now,phaseStart:now})};
 $("endRunBtn").onclick=()=>{$("doneErr").hidden=true;askFor("done","doneInput")};
 for(const id of ["backBtn","lossBack","reasonBack"]) $(id).onclick=()=>{ask=null;syncTimer()};
 $("saveBtn").onclick=()=>{
   const n=ints($("doneInput").value); if(n==null){$("doneErr").hidden=false;return}
-  record(Date.now(),{done:n},null); closeOrder();
+  record(job(),Date.now(),{done:n},null); closeOrder();
   say("saved","","ok"); window.scrollTo({top:0,behavior:"smooth"});
 };
 $("doneInput").addEventListener("keydown",e=>{if(e.key==="Enter")$("saveBtn").click()});
-$("cancelBtn").onclick=()=>{running=null;save();closeOrder();hush()};
+$("cancelBtn").onclick=()=>{jobs=jobs.filter(x=>x.id!==current);save();closeOrder();hush()};
 
 // Send waiting segments one by one; anything that fails stays in the outbox and goes out on the next try.
 let flushing=false;
@@ -624,11 +770,13 @@ async function flush(){
   flushing=true;
   try{
     while(outbox.length){
-      const seg=outbox[0];
-      const {name,unit,sent,...body}=seg;
-      let res; try{res=await (await fetch(API,{method:"POST",body:JSON.stringify({pin,action:"work",seg:body})})).json()}catch(e){break}
+      const item=outbox[0];
+      let body;
+      if(item.kind==="clock"){const {kind,...ev}=item; body={action:"clock",ev}}
+      else{const {kind,name,unit,sent,...seg}=item; body={action:"work",seg}}
+      let res; try{res=await (await fetch(API,{method:"POST",body:JSON.stringify({pin,...body})})).json()}catch(e){break}
       if(res.ok||res.error==="not_found"||res.error==="bad_format"){   // accepted, or an order that does not exist: do not keep retrying it
-        outbox.shift(); const l=log.find(r=>r.id===seg.id); if(l) l.sent=!!res.ok; save();
+        outbox.shift(); const l=log.find(r=>r.id===item.id); if(l) l.sent=!!res.ok; save();
       }else{ if(res.error==="bad_pin"){store.set("pin","");showPin()} break }
     }
   }finally{flushing=false}
@@ -642,7 +790,7 @@ const div=(cls,text)=>{const d=document.createElement("div");d.className=cls;d.t
 // Grouped by work order, most recently active first; each group totals the time of every stage, the loss and the finished count.
 function renderLog(){
   const el=$("log"); el.textContent="";
-  const rows=[...(running?[{...running,name:running.o?.name||running.name||"",unit:running.o?.unit||"",end:null}]:[]),...log];
+  const rows=[...jobs.map(j=>({...j,name:j.o?.name||j.name||"",unit:j.o?.unit||"",end:null})),...log];
   if(!rows.length){const p=document.createElement("p");p.className="empty";p.textContent=t("empty");el.append(p);return}
   const groups=new Map();
   for(const r of rows){if(!groups.has(r.no))groups.set(r.no,[]);groups.get(r.no).push(r)}
@@ -657,7 +805,7 @@ function renderLog(){
     g.append(div("head mono",no),div("sub",rs.find(r=>r.name)?.name||""),div("sum",parts.join("・")));
     for(const r of rs){
       const d=document.createElement("div");d.className="row";
-      const what=t(PH[r.phase])+(r.reason?"："+t(r.reason):"");
+      const what=t(PH[r.phase])+(r.reason?"："+t(r.reason):"")+(r.people?.length?"（"+r.people.join("、")+"）":"");
       const extra=[r.loss!=null?t("loss")+" "+r.loss.toLocaleString()+unit:"",r.done!=null?t("done")+" "+r.done.toLocaleString()+unit:""].filter(Boolean).join("・");
       d.append(div("",what),
         div("r mono",md(r.start)+" "+hm(r.start)+" – "+(r.end?hm(r.end):"…")),
@@ -688,11 +836,25 @@ function renderSlips(){
 }
 
 function showPin(){$("pinPanel").hidden=false;$("pinInput").focus()}
-$("pinGo").onclick=()=>{const v=$("pinInput").value.trim();if(!v)return;store.set("pin",v);$("pinInput").value="";$("pinPanel").hidden=true;hush()};
+$("pinGo").onclick=()=>{const v=$("pinInput").value.trim();if(!v)return;store.set("pin",v);$("pinInput").value="";$("pinPanel").hidden=true;hush();loadStaff();flush()};
 $("pinInput").addEventListener("keydown",e=>{if(e.key==="Enter")$("pinGo").click()});
 if(!DEMO){ $("tab-sheet").hidden=true; document.querySelector(".tabs").style.gridTemplateColumns="1fr"; if(!store.get("pin","")) showPin() }
 
-applyLang(); flush();
+applyLang(); flush(); loadStaff();
+// Staff and machine names (kept for offline use), and who is clocked in according to the backend (another phone, or data cleared).
+async function loadStaff(){
+  if(DEMO) return; const pin=store.get("pin",""); if(!pin) return;
+  try{
+    const [a,b]=await Promise.all(["people","clocked"].map(async action=>(await fetch(API+"?action="+action+"&pin="+encodeURIComponent(pin))).json()));
+    if(a.ok){staff={people:a.people||[],machines:(a.machines||[]).filter(m=>!/膠囊|打排/.test(m))};store.set("staff",staff)}
+    if(b.ok&&!outbox.some(x=>x.kind==="clock")){                 // nothing of ours still waiting: the backend's list is up to date
+      const d={}; for(const r of b.on||[]) d[r.name]=duty[r.name]||Date.parse(r.since.replace(" ","T")+"+08:00")||Date.now();
+      for(const j of jobs) for(const n of j.people) if(!(n in d)&&n in duty) d[n]=duty[n];
+      duty=d; save();
+    }
+    renderDuty();
+  }catch(e){}
+}
 if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});
 </script>
 </body>

@@ -13,6 +13,8 @@
  *   save / remove   以工令單號為鍵，存入或清除一張單的填寫內容（POST）
  * 手機計時：work（POST）每結束一個階段（前置／上機／停機）送一段進「工時紀錄」分頁，後台把這張單的
  *   各階段分鐘數、損耗、完成數量加總後，寫回表格那一列（前置/上機/停機分鐘、損耗、可損耗、實際用時、製造日期、完工時間、生產進度）。
+ *   一個工作間共用一支手機：action=people 給人員與機台名單，clock（POST）記上班／下班打卡到「打卡紀錄」分頁，
+ *   action=clocked 回傳目前誰在上班（換手機或清掉資料時用）。
  * 資料存在這個帳號自己 Google 雲端的「五股廠生產組表單」試算表，第一次存檔時自動建立。
  *
  * 必要設定（專案設定 → 指令碼屬性）：PIN（工廠密碼）、SHEET_ID（訂單計畫單所在試算表）、
@@ -42,6 +44,8 @@ function doGet(e) {
   if (bad) return bad;
   if (p.action === 'options') return json_({ ok: true, options: options_() });
   if (p.action === 'list') return json_({ ok: true, rows: list_() });
+  if (p.action === 'people') { const o = options_(); return json_({ ok: true, people: o['作業人員'] || [], machines: o['機台'] || [] }); }
+  if (p.action === 'clocked') return json_({ ok: true, on: clocked_() });
   if (p.action === 'board') {
     if (p.fresh) { cacheDel_('idx'); cacheDel_('plat'); }
     return json_({ ok: true, orders: board_(), rows: list_() });
@@ -51,8 +55,9 @@ function doGet(e) {
   const o = index_()[no];
   if (!o) return json_({ ok: false, error: 'not_found' });
   // 手機 App 只拿得到這四項（加重工標記），加上計時要用的：前置做過沒、目前已損耗多少。其餘欄位只給表格畫面（action=board）
-  const w = workSum_(no);
-  return json_({ ok: true, order: { no: o.no, name: o.name, code: o.code, qty: o.qty, unit: o.unit, rework: o.rework, prepped: w.prepped, loss: w.loss } });
+  const w = workSum_(no), row = dbRow_(no);
+  return json_({ ok: true, order: { no: o.no, name: o.name, code: o.code, qty: o.qty, unit: o.unit, rework: o.rework, prepped: w.prepped, loss: w.loss,
+    machine: row ? row['機台'] : '', people: row ? [1, 2, 3, 4].map(n => row['作業人員' + n]).filter(Boolean) : [] } });
 }
 
 // 寫入一律用 POST（本文是 JSON 文字）：{ action:'save', pin, row:{工令單號,...} } 或 { action:'remove', pin, no }
@@ -64,6 +69,7 @@ function doPost(e) {
   if (p.action === 'save') return json_(save_(p.row || {}));
   if (p.action === 'remove') return json_(remove_(String(p.no || '').trim().toUpperCase()));
   if (p.action === 'work') return json_(work_(p.seg || {}));
+  if (p.action === 'clock') return json_(clock_(p.ev || {}));
   return json_({ ok: false, error: 'bad_request' });
 }
 
@@ -401,9 +407,11 @@ function work_(seg) {
     const sh = workSheet_();
     const all = sh.getDataRange().getDisplayValues();
     if (!all.some(r => r[0] === id)) { // 同一段重送（網路斷掉重試）不重複記
-      const people = row ? [1, 2, 3, 4].map(n => row['作業人員' + n]).filter(Boolean).join('、') : '';
+      const people = Array.isArray(seg.people) && seg.people.length ? seg.people.map(x => String(x).slice(0, 30)).join('、')
+        : (row ? [1, 2, 3, 4].map(n => row['作業人員' + n]).filter(Boolean).join('、') : '');
+      const machine = seg.machine ? String(seg.machine).slice(0, 40) : (row ? row['機台'] : '');
       const out = [id, no, order ? order.name : (row['產品名稱'] || ''), phase, phase === '停機' ? String(seg.reasonText || '').slice(0, 40) : '',
-        fmt(start), fmt(end), String(Math.round((end - start) / 6000) / 10), loss, done, row ? row['機台'] : '', people, fmt(Date.now())];
+        fmt(start), fmt(end), String(Math.round((end - start) / 6000) / 10), loss, done, machine, people, fmt(Date.now())];
       const at = all.length + 1;
       if (at > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), 500);
       const range = sh.getRange(at, 1, 1, out.length);
@@ -428,6 +436,67 @@ function work_(seg) {
   if (s.hasDone) { fields['完成數量'] = String(s.done); fields['生產進度'] = String(s.done); fields['完工時間'] = s.last.slice(0, 10); }
   const saved = save_(fields);
   return saved.ok ? { ok: true, sum: { prep: s.prep, run: s.run, stop: s.stop, loss: s.loss, done: s.done, allow: fields['可損耗'] } } : saved;
+}
+
+// 只讀：表格裡這張單那一列（沒有資料表就是沒有，不建立）
+function dbRow_(no) {
+  const id = PropertiesService.getScriptProperties().getProperty('DB_ID');
+  const sh = id ? SpreadsheetApp.openById(id).getSheetByName(DB.SHEET) : null;
+  if (!sh) return null;
+  const noCol = DB_HEAD.indexOf('工令單號');
+  const r = sh.getDataRange().getDisplayValues().slice(1).filter(x => x[noCol] === no)[0];
+  return r ? rowToObj_(r) : null;
+}
+
+// ---- 上班／下班打卡 ----
+const CLOCK = { SHEET: '打卡紀錄', HEAD: ['id', '姓名', '類型', '時間', '寫入時間'], TYPES: { in: '上班', out: '下班' }, MAX_SHIFT_HOURS: 20 };
+
+function clockSheet_() {
+  const ss = db_().getParent();
+  let sh = ss.getSheetByName(CLOCK.SHEET);
+  if (!sh) sh = ss.insertSheet(CLOCK.SHEET);
+  const n = CLOCK.HEAD.length;
+  const have = sh.getRange(1, 1, 1, n).getValues()[0].map(String);
+  if (have.join('|') !== CLOCK.HEAD.join('|')) {
+    sh.getRange(1, 1, sh.getMaxRows(), n).setNumberFormat('@');
+    sh.getRange(1, 1, 1, n).setValues([CLOCK.HEAD]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+
+function clock_(ev) {
+  const id = String(ev.id || '').slice(0, 40), name = String(ev.name || '').trim().slice(0, 30);
+  const type = CLOCK.TYPES[ev.type], at = Number(ev.at);
+  if (!id || !name || !type || !(at > 0) || Math.abs(Date.now() - at) > 7 * 86400000) return { ok: false, error: 'bad_request' };
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const sh = clockSheet_();
+    const all = sh.getDataRange().getDisplayValues();
+    if (!all.some(r => r[0] === id)) {
+      const fmt = ms => Utilities.formatDate(new Date(ms), DB.TZ, 'yyyy-MM-dd HH:mm:ss');
+      const out = [id, name, type, fmt(at), fmt(Date.now())];
+      const row = all.length + 1;
+      if (row > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), 500);
+      const range = sh.getRange(row, 1, 1, out.length);
+      range.setNumberFormat('@'); range.setValues([out]);
+    }
+    return { ok: true };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// 目前在上班的人：每個人最後一筆是「上班」，而且還沒超過 MAX_SHIFT_HOURS（忘了下班打卡的不會一直掛著）
+function clocked_() {
+  const id = PropertiesService.getScriptProperties().getProperty('DB_ID');
+  const sh = id ? SpreadsheetApp.openById(id).getSheetByName(CLOCK.SHEET) : null;
+  if (!sh) return [];
+  const last = {};
+  sh.getDataRange().getDisplayValues().slice(1).forEach(r => { if (!last[r[1]] || r[3] >= last[r[1]][3]) last[r[1]] = r; });
+  const limit = Utilities.formatDate(new Date(Date.now() - CLOCK.MAX_SHIFT_HOURS * 3600000), DB.TZ, 'yyyy-MM-dd HH:mm:ss');
+  return Object.keys(last).filter(n => last[n][2] === CLOCK.TYPES.in && last[n][3] >= limit).map(n => ({ name: n, since: last[n][3] }));
 }
 
 // ---- 一次性匯入：把「五股廠(生產組)」現有的填寫內容帶進表格 ----

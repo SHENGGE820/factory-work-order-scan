@@ -280,7 +280,7 @@ html.native-scanning body{visibility:hidden}
     </section>
   </main>
 
-  <p class="note" style="text-align:center"><a href="form.html">工廠管理（電腦版）</a></p>
+  <p class="note" style="text-align:center"><a href="form.html" data-t="formLink">工廠管理（電腦版）</a></p>
 
   <main id="view-sheet" class="sheet" hidden>
     <p class="note" data-t="sheetNote">用電腦開這一頁，再用手機的「掃描」頁對著螢幕拍照。全部是編造的測試資料。</p>
@@ -342,22 +342,30 @@ const T = {
       busy:"讀取中…",noCode:"沒有讀到工令單號條碼。請把「工令單號」那條拍清楚、拍正，再試一次。",
       badFormat:"這不是工令單號（應為 1 個英文字加 10 位數字）。",notFound:"查無此單：",
       records:"工時紀錄",empty:"還沒有紀錄。",phasePrep:"前置作業",phaseRun:"上機作業",endPrep:"前置結束，開始上機",endRun:"上機結束",doneAsk:"完成數量",saveEnd:"確認，結束計時",back:"返回",cancelPrep:"掃錯單，取消",finishFirst:"還有一張單在計時中，請先把它結束，才能開始下一張。",needQty:"請輸入完成數量（整數）。",saved:"已記錄，辛苦了！",done:"完成",pcs:"顆",
-      phaseStop:"停機",stop:"停機",resume:"恢復作業",reasonAsk:"停機原因（按一個）",allowLoss:"可損耗",usedLoss:"已損耗",lossAsk:"這次「{r}」損耗了幾{u}？（沒有就填 0）",needLoss:"請輸入損耗數量（整數，沒有就填 0）。",overLoss:"已超過可損耗數量！",pending:"未上傳",logLive:"紀錄會自動上傳；沒有網路時先存在手機，連上網路再補傳。",loss:"損耗",r_foil:"換鋁卷",r_ribbon:"換碳帶",r_adjust:"調機",r_burst:"破包",r_print:"打印",r_water:"水測",r_material:"等料",r_breakdown:"機器故障",r_break:"休息／用餐",r_quality:"品質問題",r_other:"其他",jobs:"進行中的工令",noJobs:"目前沒有進行中的工令。掃一張工令開始。",whoAsk:"誰做這張？（可以選好幾個人）",machineAsk:"機台",noMachine:"（不選）",startJob:"開始計時",saveCrew:"確認換人",needWho:"請至少選一個人。",changeCrew:"換人／換機台",hideOrder:"收起",fMach:"機台",fPeople:"作業人員",noStaff:"讀不到人員名單，請確認網路後重新打開。",today:"今天",yesterday:"昨天",statusLive:"進行中",statusDone:"已完成",statusOpen:"未完成",segs:"明細",onlyRecent:"只顯示最近 7 天的紀錄。",hr:"時",mn:"分",inProgress:"進行中",min:"分鐘",
+      phaseStop:"停機",stop:"停機",resume:"恢復作業",reasonAsk:"停機原因（按一個）",allowLoss:"可損耗",usedLoss:"已損耗",lossAsk:"這次「{r}」損耗了幾{u}？（沒有就填 0）",needLoss:"請輸入損耗數量（整數，沒有就填 0）。",overLoss:"已超過可損耗數量！",pending:"未上傳",logLive:"紀錄會自動上傳；沒有網路時先存在手機，連上網路再補傳。",loss:"損耗",r_foil:"換鋁卷",r_ribbon:"換碳帶",r_adjust:"調機",r_burst:"破包",r_print:"打印",r_water:"水測",r_material:"等料",r_breakdown:"機器故障",r_break:"休息／用餐",r_quality:"品質問題",r_other:"其他",jobs:"進行中的工令",noJobs:"目前沒有進行中的工令。掃一張工令開始。",whoAsk:"誰做這張？（可以選好幾個人）",machineAsk:"機台",noMachine:"（不選）",startJob:"開始計時",saveCrew:"確認換人",needWho:"請至少選一個人。",changeCrew:"換人／換機台",hideOrder:"收起",fMach:"機台",fPeople:"作業人員",noStaff:"讀不到人員名單，請確認網路後重新打開。",today:"今天",yesterday:"昨天",statusLive:"進行中",statusDone:"已完成",statusOpen:"未完成",segs:"明細",onlyRecent:"只顯示最近 7 天的紀錄。",hr:"時",mn:"分",formLink:"工廠管理（電腦版）",inProgress:"進行中",min:"分鐘",
       sheetNote:"用電腦開這一頁，再用手機的「掃描」頁對著螢幕拍照。全部是編造的測試資料。",
       slipNo:"工令單號",slipQty:"數量"},
-  vi:{title:"Quét lệnh sản xuất",demo:"Bản thử・Dữ liệu giả",tabScan:"Quét",tabSheet:"Phiếu thử",scan:"Chụp ảnh thay thế",live:"Quét phiếu",aim:"Đưa mã vạch “工令單號” vào khung",checking:"Đã đọc, đang tìm… ",torch:"Đèn pin",closeCam:"Tắt camera",camErr:"Không mở được camera. Hãy cho phép dùng camera, hoặc chụp ảnh.",tryPhoto:"Không quét được? Hãy bấm “Chụp ảnh thay thế” bên dưới.",find:"Tìm",pinAsk:"Nhập mật khẩu nhà máy (chỉ một lần)",ok:"OK",badPin:"Mật khẩu nhà máy không đúng, hãy nhập lại.",netErr:"Không kết nối được dữ liệu. Kiểm tra mạng rồi thử lại.",live1:"Bản thử",
+  vi:{title:"Quét lệnh sản xuất",demo:"Bản thử · Dữ liệu giả",tabScan:"Quét",tabSheet:"Phiếu thử",scan:"Chụp ảnh thay thế",live:"Quét phiếu",aim:"Đưa mã vạch “工令單號” vào khung",checking:"Đã đọc, đang tìm… ",torch:"Đèn pin",closeCam:"Tắt camera",camErr:"Không mở được camera. Hãy cho phép dùng camera, hoặc chụp ảnh.",tryPhoto:"Không quét được? Hãy bấm “Chụp ảnh thay thế” bên dưới.",find:"Tìm",pinAsk:"Nhập mật khẩu nhà máy (chỉ một lần)",ok:"OK",badPin:"Mật khẩu nhà máy không đúng, hãy nhập lại.",netErr:"Không kết nối được dữ liệu. Kiểm tra mạng rồi thử lại.",live1:"Bản thử",
       fNo:"Số lệnh SX",fName:"Tên sản phẩm",fCode:"Mã sản phẩm",fQty:"Số lượng",
       logNote:"Bản thử: dữ liệu chỉ lưu trên điện thoại này.",rework:"Làm lại",
       busy:"Đang đọc…",noCode:"Không đọc được mã vạch số lệnh. Hãy chụp rõ và thẳng mã vạch “工令單號”, rồi thử lại.",
       badFormat:"Đây không phải số lệnh SX (1 chữ cái + 10 chữ số).",notFound:"Không tìm thấy phiếu: ",
       records:"Nhật ký giờ làm",empty:"Chưa có dữ liệu.",phasePrep:"Chuẩn bị",phaseRun:"Chạy máy",endPrep:"Xong chuẩn bị, bắt đầu chạy máy",endRun:"Kết thúc chạy máy",doneAsk:"Số lượng hoàn thành",saveEnd:"Xác nhận, dừng tính giờ",back:"Quay lại",cancelPrep:"Quét nhầm phiếu, hủy",finishFirst:"Còn một phiếu đang tính giờ. Hãy kết thúc phiếu đó trước khi bắt đầu phiếu mới.",needQty:"Hãy nhập số lượng hoàn thành (số nguyên).",saved:"Đã lưu. Cảm ơn bạn!",done:"Hoàn thành",pcs:"viên",
-      phaseStop:"Dừng máy",stop:"Dừng máy",resume:"Tiếp tục làm",reasonAsk:"Lý do dừng máy (chọn một)",allowLoss:"Hao hụt cho phép",usedLoss:"Đã hao hụt",lossAsk:"Lần “{r}” này hao hụt bao nhiêu {u}? (không có thì nhập 0)",needLoss:"Hãy nhập số hao hụt (số nguyên, không có thì nhập 0).",overLoss:"Đã vượt mức hao hụt cho phép!",pending:"Chưa gửi",logLive:"Dữ liệu tự động gửi lên; khi không có mạng sẽ lưu trên điện thoại và gửi lại khi có mạng.",loss:"Hao hụt",r_foil:"Thay cuộn nhôm",r_ribbon:"Thay ruy băng mực",r_adjust:"Chỉnh máy",r_burst:"Rách gói",r_print:"In ấn",r_water:"Thử nước",r_material:"Chờ nguyên liệu",r_breakdown:"Máy hỏng",r_break:"Nghỉ / ăn cơm",r_quality:"Vấn đề chất lượng",r_other:"Khác",jobs:"Lệnh đang làm",noJobs:"Hiện chưa có lệnh nào. Quét một phiếu để bắt đầu.",whoAsk:"Ai làm phiếu này? (có thể chọn nhiều người)",machineAsk:"Máy",noMachine:"(không chọn)",startJob:"Bắt đầu tính giờ",saveCrew:"Xác nhận đổi người",needWho:"Hãy chọn ít nhất một người.",changeCrew:"Đổi người / đổi máy",hideOrder:"Thu gọn",fMach:"Máy",fPeople:"Người làm",noStaff:"Không tải được danh sách nhân viên, hãy kiểm tra mạng rồi mở lại.",today:"Hôm nay",yesterday:"Hôm qua",statusLive:"Đang làm",statusDone:"Xong",statusOpen:"Chưa xong",segs:"Chi tiết",onlyRecent:"Chỉ hiện dữ liệu 7 ngày gần nhất.",hr:"giờ",mn:"phút",inProgress:"Đang làm",min:"phút",
+      phaseStop:"Dừng máy",stop:"Dừng máy",resume:"Tiếp tục làm",reasonAsk:"Lý do dừng máy (chọn một)",allowLoss:"Hao hụt cho phép",usedLoss:"Đã hao hụt",lossAsk:"Lần “{r}” này hao hụt bao nhiêu {u}? (không có thì nhập 0)",needLoss:"Hãy nhập số hao hụt (số nguyên, không có thì nhập 0).",overLoss:"Đã vượt mức hao hụt cho phép!",pending:"Chưa gửi",logLive:"Dữ liệu tự động gửi lên; khi không có mạng sẽ lưu trên điện thoại và gửi lại khi có mạng.",loss:"Hao hụt",r_foil:"Thay cuộn nhôm",r_ribbon:"Thay ruy băng mực",r_adjust:"Chỉnh máy",r_burst:"Rách gói",r_print:"In ấn",r_water:"Thử nước",r_material:"Chờ nguyên liệu",r_breakdown:"Máy hỏng",r_break:"Nghỉ / ăn cơm",r_quality:"Vấn đề chất lượng",r_other:"Khác",jobs:"Lệnh đang làm",noJobs:"Hiện chưa có lệnh nào. Quét một phiếu để bắt đầu.",whoAsk:"Ai làm phiếu này? (có thể chọn nhiều người)",machineAsk:"Máy",noMachine:"(không chọn)",startJob:"Bắt đầu tính giờ",saveCrew:"Xác nhận đổi người",needWho:"Hãy chọn ít nhất một người.",changeCrew:"Đổi người / đổi máy",hideOrder:"Thu gọn",fMach:"Máy",fPeople:"Người làm",noStaff:"Không tải được danh sách nhân viên, hãy kiểm tra mạng rồi mở lại.",today:"Hôm nay",yesterday:"Hôm qua",statusLive:"Đang làm",statusDone:"Xong",statusOpen:"Chưa xong",segs:"Chi tiết",onlyRecent:"Chỉ hiện dữ liệu 7 ngày gần nhất.",hr:"giờ",mn:"phút",formLink:"Quản lý xưởng (máy tính)",inProgress:"Đang làm",min:"phút",
       sheetNote:"Mở trang này trên máy tính, rồi dùng trang “Quét” trên điện thoại để chụp màn hình. Dữ liệu đều là giả.",
       slipNo:"Số lệnh SX",slipQty:"Số lượng"},
 };
 const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
 let lang=store.get("lang","zh"); if(!T[lang]) lang="zh";
 const t=k=>T[lang][k]??T.zh[k];
+// Text built at run time must follow the language too: order units, list separators and brackets.
+// (Product, staff and machine names come from the company's sheets and stay as they are.)
+const UNIT_VI={包:"gói",盒:"hộp",袋:"túi",瓶:"chai",排:"vỉ",顆:"viên",粒:"viên",錠:"viên",片:"miếng",公斤:"kg",kg:"kg",KG:"kg",公克:"g",克:"g",罐:"lon",箱:"thùng",個:"cái",支:"cây",條:"thanh",卷:"cuộn",捲:"cuộn",張:"tờ",組:"bộ",份:"phần",套:"bộ",盤:"khay",桶:"thùng"};
+const unitT=u=>lang==="vi"?(UNIT_VI[String(u||"").trim()]||u):u;
+const list=a=>a.join(lang==="zh"?"、":", ");
+const colon=()=>lang==="zh"?"：":": ";
+const dot=()=>lang==="zh"?"・":" · ";
+const paren=x=>lang==="zh"?"（"+x+"）":" ("+x+")";
 const $=id=>document.getElementById(id);
 
 function applyLang(){
@@ -367,7 +375,7 @@ function applyLang(){
   renderReasons();
   $("t-title").textContent=t("title"); $("t-demo").textContent=t(DEMO?"demo":"live1");
   document.querySelectorAll(".lang button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.lang===lang));
-  showOrder(); renderLog(); renderSlips(); renderJobs();
+  showOrder(); renderLog(); renderSlips(); renderJobs(); if(ask==="loss") lossLabel();
   if(lastMsg) say(lastMsg.key,lastMsg.extra,lastMsg.cls);
 }
 document.querySelectorAll(".lang button").forEach(b=>b.onclick=()=>{lang=b.dataset.lang;store.set("lang",lang);applyLang()});
@@ -652,9 +660,9 @@ function showOrder(){
   const j=job(), no=j?j.no:pendingNo; if(!no){$("order").hidden=true;return}
   const o=orders.get(no)||{no,name:j?.name||"",code:"",qty:"",unit:""}; $("order").hidden=false;
   $("oNo").textContent=o.no; $("oName").textContent=o.name; $("oCode").textContent=o.code;
-  $("oQty").textContent=o.qty.toLocaleString()+" "+o.unit;
+  $("oQty").textContent=o.qty.toLocaleString()+" "+unitT(o.unit);
   if(o.rework){const s=document.createElement("span");s.className="tag";s.textContent=t("rework");$("oNo").append(s)}
-  for(const [k,v] of [["oMach",j?.machine],["oPeople",j?.people.join("、")]]){$(k).textContent=v||"";$(k).hidden=$(k+"L").hidden=!v}
+  for(const [k,v] of [["oMach",j?.machine],["oPeople",j&&list(j.people)]]){$(k).textContent=v||"";$(k).hidden=$(k+"L").hidden=!v}
   syncTimer();
 }
 function closeOrder(){current=null;pendingNo=null;ask=null;$("order").hidden=true;syncTimer();renderJobs()}
@@ -695,7 +703,7 @@ $("hideBtn").onclick=closeOrder;
 function renderLoss(){
   const no=job()?.no||pendingNo, o=orders.get(no), allow=allowOf(o), on=!!no&&allow!=null;
   $("lossBox").hidden=!on; if(!on) return;
-  const used=usedOf(no), u=" "+(o.unit||"");
+  const used=usedOf(no), u=" "+unitT(o.unit||"");
   $("allowLoss").textContent=allow.toLocaleString()+u; $("usedLoss").textContent=used.toLocaleString()+u;
   $("lossBox").classList.toggle("over",used>allow); $("lossBox").title=used>allow?t("overLoss"):"";
 }
@@ -721,8 +729,8 @@ function renderJobs(){
   if(!jobs.length){box.append(div("empty",t("noJobs")));return}
   for(const j of jobs){
     const b=document.createElement("button");b.className="job";b.dataset.job=j.id;b.dataset.phase=j.phase;b.setAttribute("aria-current",j.id===current);
-    b.append(div("m",(j.machine?j.machine+"・":"")+j.no),div("c",clockText(Date.now()-(j.phaseStart||j.start))),
-      div("s",t(PH[j.phase])+(j.phase==="stop"?"："+t(j.reason):"")+"・"+j.people.join("、")),div("s",""));
+    b.append(div("m",(j.machine?j.machine+dot():"")+j.no),div("c",clockText(Date.now()-(j.phaseStart||j.start))),
+      div("s",t(PH[j.phase])+(j.phase==="stop"?colon()+t(j.reason):"")+dot()+list(j.people)),div("s",""));
     b.onclick=()=>{hush();current=j.id;pendingNo=null;ask=null;showOrder();renderJobs();$("order").scrollIntoView({behavior:"smooth",block:"start"})};
     box.append(b);
   }
@@ -747,10 +755,11 @@ function askFor(which,input){ask=which;syncTimer();if(input){$(input).value="";$
 // 前置 has no loss (user, 2026-10-16): ending it goes straight on to 上機
 $("endPrepBtn").onclick=()=>{const j=job(), now=Date.now(); record(j,now,{},{...j,phase:"run",start:now,phaseStart:now,scanned:false})};
 $("stopBtn").onclick=()=>askFor("reason");
+function lossLabel(){const j=job(); if(!j) return; const o=orders.get(j.no); $("lossAsk").textContent=t("lossAsk").replace("{r}",t(j.reason)).replace("{u}",unitT(o?.unit)||t("pcs"))}
 function resume(extra){const j=job(), now=Date.now(),{resume,reason,...rest}=j; record(j,now,extra,{...rest,phase:resume||"run",start:now,phaseStart:now})}
 $("resumeBtn").onclick=()=>{
   const j=job(); if(!LOSSY.includes(j.reason)) return resume({});
-  const o=orders.get(j.no); $("lossAsk").textContent=t("lossAsk").replace("{r}",t(j.reason)).replace("{u}",o?.unit||t("pcs"));
+  lossLabel();
   $("lossErr").hidden=true; askFor("loss","lossInput");
 };
 $("lossSave").onclick=()=>{const n=ints($("lossInput").value); if(n==null){$("lossErr").hidden=false;return} resume({loss:n})};
@@ -811,7 +820,7 @@ function renderLog(){
   let day=null;
   for(const {no,rs,last} of cards){
     const dl=dayLabel(last); if(dl!==day){day=dl;box.append(el("div","day",dl))}
-    const sum={prep:0,run:0,stop:0,loss:0,done:0}, unit=rs.find(r=>r.unit)?.unit||t("pcs");
+    const sum={prep:0,run:0,stop:0,loss:0,done:0}, unit=unitT(rs.find(r=>r.unit)?.unit)||t("pcs");
     for(const r of rs){sum[r.phase]+=(r.end||now)-r.start;sum.done+=r.done||0;sum.loss+=r.loss||0}
     const live=rs.some(r=>r.live), finished=rs.some(r=>r.done!=null), unsent=rs.filter(r=>waiting.has(r.id)).length;
     const o=orders.get(no), allow=allowOf(o);
@@ -831,20 +840,20 @@ function renderLog(){
     stat(t("phaseStop"),sum.stop?dur(sum.stop):"—","stop");
     stat(t("loss"),sum.loss.toLocaleString()+" "+unit,null,allow!=null&&usedOf(no)>allow);
     stat(t("done"),finished?sum.done.toLocaleString()+" "+unit:"—");
-    stat(t("fPeople"),[...new Set(rs.flatMap(r=>r.people||[]))].join("、")||"—"); stats.lastChild.querySelector(".v").classList.add("small");
+    stat(t("fPeople"),list([...new Set(rs.flatMap(r=>r.people||[]))])||"—"); stats.lastChild.querySelector(".v").classList.add("small");
     c.append(stats);
     // timeline: one block per segment, width by duration
     const tl=el("div","tl"), total=rs.reduce((a,r)=>a+((r.end||now)-r.start),0)||1;
     for(const r of rs){const b=el("b",r.phase+(r.live?" live":""));b.style.flex=((r.end||now)-r.start)/total+" 1 0";b.title=t(PH[r.phase])+" "+dur((r.end||now)-r.start);tl.append(b)}
     c.append(tl);
     // segments, folded
-    const det=el("details"); det.append(el("summary",null,t("segs")+"（"+rs.length+"）"));
+    const det=el("details"); det.append(el("summary",null,t("segs")+paren(rs.length)));
     for(const r of [...rs].reverse()){
       const g=el("div","seg"), w=el("div","w");
-      w.append(t(PH[r.phase])+(r.reason?"："+t(r.reason):""));
+      w.append(t(PH[r.phase])+(r.reason?colon()+t(r.reason):""));
       if(r.loss!=null) w.append(el("span","tg loss",t("loss")+" "+r.loss.toLocaleString()));
       if(r.done!=null) w.append(el("span","tg done",t("done")+" "+r.done.toLocaleString()));
-      const sub=[r.machine,(r.people||[]).join("、"),waiting.has(r.id)?t("pending"):""].filter(Boolean).join("・"); if(sub) w.append(el("small",null,sub));
+      const sub=[r.machine,list(r.people||[]),waiting.has(r.id)?t("pending"):""].filter(Boolean).join(dot()); if(sub) w.append(el("small",null,sub));
       const tt=el("div","t",hm(r.start)+"–"+(r.end?hm(r.end):"…")); tt.append(el("small",null,r.end?dur(r.end-r.start):t("inProgress")));
       g.append(el("span","dot "+r.phase),w,tt); det.append(g);
     }
@@ -866,8 +875,8 @@ function renderSlips(){
       <div class="meta"><span class="nm"></span><span class="q"></span></div>`;
     s.querySelector(".h .mono").textContent=o.code;
     s.querySelector(".lbl").textContent=t("slipNo");
-    s.querySelector(".nm").textContent=o.name+(o.rework?"（"+t("rework")+"）":"");
-    s.querySelector(".q").textContent=t("slipQty")+"："+o.qty.toLocaleString()+" "+o.unit;
+    s.querySelector(".nm").textContent=o.name+(o.rework?paren(t("rework")):"");
+    s.querySelector(".q").textContent=t("slipQty")+colon()+o.qty.toLocaleString()+" "+unitT(o.unit);
     box.append(s);
     JsBarcode(s.querySelector(".bc-no"),o.no,{format:"CODE128",height:70,width:2,margin:12,displayValue:false,background:"#ffffff",lineColor:"#000000"});
   }

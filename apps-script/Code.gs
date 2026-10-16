@@ -11,6 +11,8 @@
  *   action=board    一次回傳要排的工令單（讀 BKE在途工單 的「計畫單平台」，只取代工廠＝五股廠且在訂單計畫單裡的單），加上已填的生產組資料（表格畫面用）
  *   action=list     只列出已填的生產組資料
  *   save / remove   以工令單號為鍵，存入或清除一張單的填寫內容（POST）
+ * 手機計時：work（POST）每結束一個階段（前置／上機／停機）送一段進「工時紀錄」分頁，後台把這張單的
+ *   各階段分鐘數、損耗、完成數量加總後，寫回表格那一列（前置/上機/停機分鐘、損耗、可損耗、實際用時、製造日期、完工時間、生產進度）。
  * 資料存在這個帳號自己 Google 雲端的「五股廠生產組表單」試算表，第一次存檔時自動建立。
  *
  * 必要設定（專案設定 → 指令碼屬性）：PIN（工廠密碼）、SHEET_ID（訂單計畫單所在試算表）、
@@ -47,8 +49,10 @@ function doGet(e) {
   const no = String(p.no || '').trim().toUpperCase();
   if (!/^[A-Z]\d{10}$/.test(no)) return json_({ ok: false, error: 'bad_format' });
   const o = index_()[no];
-  // 手機 App 只拿得到這四項（加重工標記），其餘欄位只給表格畫面（action=board）
-  return json_(o ? { ok: true, order: { no: o.no, name: o.name, code: o.code, qty: o.qty, unit: o.unit, rework: o.rework } } : { ok: false, error: 'not_found' });
+  if (!o) return json_({ ok: false, error: 'not_found' });
+  // 手機 App 只拿得到這四項（加重工標記），加上計時要用的：前置做過沒、目前已損耗多少。其餘欄位只給表格畫面（action=board）
+  const w = workSum_(no);
+  return json_({ ok: true, order: { no: o.no, name: o.name, code: o.code, qty: o.qty, unit: o.unit, rework: o.rework, prepped: w.prepped, loss: w.loss } });
 }
 
 // 寫入一律用 POST（本文是 JSON 文字）：{ action:'save', pin, row:{工令單號,...} } 或 { action:'remove', pin, no }
@@ -59,6 +63,7 @@ function doPost(e) {
   if (bad) return bad;
   if (p.action === 'save') return json_(save_(p.row || {}));
   if (p.action === 'remove') return json_(remove_(String(p.no || '').trim().toUpperCase()));
+  if (p.action === 'work') return json_(work_(p.seg || {}));
   return json_({ ok: false, error: 'bad_request' });
 }
 
@@ -190,7 +195,9 @@ const DB = {
   FIELDS: ['工令單號', '產品編號', '產品名稱', '數量', '單位', '出貨點', '交期',
     '作業人員1', '作業人員2', '作業人員3', '作業人員4', '人數', '機台', '預計完工日', '天/時',
     '製造日期', '生產進度', '完工時間', '實際用時(時)', '實際用時(分)', '進度說明',
-    '答交', '作業時間', '領料單號/調撥單號', '到料時間', '領料', '工令完工', '備註', '排序', '完工資訊', '分區'],
+    '答交', '作業時間', '領料單號/調撥單號', '到料時間', '領料', '工令完工', '備註', '排序', '完工資訊', '分區',
+    // 下面這些由手機計時自動算（work_），表格上只顯示不給改
+    '前置(分)', '上機(分)', '停機(分)', '損耗', '可損耗', '完成數量'],
   FROM_ORDER: { '產品編號': 'code', '產品名稱': 'name', '數量': 'qty', '單位': 'unit' }, // 一律以訂單計畫單為準
   // 「選單」分頁表頭 → 下拉選項名稱；第一欄（表頭是 0）是作業人員。
   OPTION_HEADERS: { '人數': '人數', '生產機台': '機台', '預計完工日': '預計完工日', '天/時': '天/時', '進度說明': '進度說明' },
@@ -322,6 +329,105 @@ function options_() {
   }
   try { cache.put('opts', JSON.stringify(out), CONFIG.CACHE_SECONDS); } catch (err) { /* ignore */ }
   return out;
+}
+
+// ---- 手機計時：工時紀錄 ----
+// 每一段＝一個人在一張單的一個階段（前置／上機／停機）從開始到結束。機台與作業人員取當下表格那一列排的。
+const WORK = {
+  SHEET: '工時紀錄',
+  HEAD: ['id', '工令單號', '產品名稱', '階段', '停機原因', '開始', '結束', '分鐘', '損耗', '完成數量', '機台', '作業人員', '寫入時間'],
+  PHASES: { prep: '前置', run: '上機', stop: '停機' },
+  LOSS_RATE: 0.03, // 可損耗＝工令數量 × 3%（無條件捨去）
+};
+
+function workSheet_() {
+  const ss = db_().getParent();
+  let sh = ss.getSheetByName(WORK.SHEET);
+  if (!sh) sh = ss.insertSheet(WORK.SHEET);
+  const n = WORK.HEAD.length;
+  if (sh.getMaxColumns() < n) sh.insertColumnsAfter(sh.getMaxColumns(), n - sh.getMaxColumns());
+  const have = sh.getRange(1, 1, 1, n).getValues()[0].map(String);
+  if (have.join('|') !== WORK.HEAD.join('|')) {
+    sh.getRange(1, 1, sh.getMaxRows(), n).setNumberFormat('@');
+    sh.getRange(1, 1, 1, n).setValues([WORK.HEAD]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+
+// 只讀：還沒有資料表或還沒有工時紀錄分頁時就是沒有紀錄（手機查單不會因此建立試算表）
+function workRows_(no) {
+  const id = PropertiesService.getScriptProperties().getProperty('DB_ID');
+  const sh = id ? SpreadsheetApp.openById(id).getSheetByName(WORK.SHEET) : null;
+  if (!sh) return [];
+  const rows = sh.getDataRange().getDisplayValues().slice(1);
+  return no ? rows.filter(r => r[1] === no) : rows;
+}
+
+// 一張單到目前為止的加總
+function workSum_(no, rows) {
+  rows = rows || workRows_(no);
+  const C = {}; WORK.HEAD.forEach((h, i) => { C[h] = i; });
+  const s = { prep: 0, run: 0, stop: 0, loss: 0, done: 0, hasDone: false, prepped: false, first: '', last: '' };
+  rows.forEach(r => {
+    const k = Object.keys(WORK.PHASES).filter(x => WORK.PHASES[x] === r[C['階段']])[0];
+    if (!k) return;
+    s[k] += Number(r[C['分鐘']]) || 0;
+    if (k === 'prep') s.prepped = true;
+    s.loss += Number(r[C['損耗']]) || 0;
+    if (r[C['完成數量']] !== '') { s.done += Number(r[C['完成數量']]) || 0; s.hasDone = true; if (r[C['結束']] > s.last) s.last = r[C['結束']]; }
+    if (!s.first || r[C['開始']] < s.first) s.first = r[C['開始']];
+  });
+  return s;
+}
+
+function work_(seg) {
+  const no = String(seg.no || '').trim().toUpperCase();
+  if (!/^[A-Z]\d{10}$/.test(no)) return { ok: false, error: 'bad_format' };
+  const phase = WORK.PHASES[seg.phase];
+  const start = Number(seg.start), end = Number(seg.end);
+  const id = String(seg.id || '').slice(0, 40);
+  const count = v => (v === undefined || v === null || v === '' ? '' : (Number.isInteger(Number(v)) && Number(v) >= 0 ? String(Number(v)) : null));
+  const loss = count(seg.loss), done = count(seg.done);
+  if (!id || !phase || !(start > 0) || !(end >= start) || end - start > 7 * 86400000 || loss === null || done === null) return { ok: false, error: 'bad_request' };
+  const order = index_()[no];
+  const row = list_().filter(r => r['工令單號'] === no)[0];
+  if (!order && !row) return { ok: false, error: 'not_found' };
+  const fmt = ms => Utilities.formatDate(new Date(ms), DB.TZ, 'yyyy-MM-dd HH:mm:ss');
+  let rows;
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const sh = workSheet_();
+    const all = sh.getDataRange().getDisplayValues();
+    if (!all.some(r => r[0] === id)) { // 同一段重送（網路斷掉重試）不重複記
+      const people = row ? [1, 2, 3, 4].map(n => row['作業人員' + n]).filter(Boolean).join('、') : '';
+      const out = [id, no, order ? order.name : (row['產品名稱'] || ''), phase, phase === '停機' ? String(seg.reasonText || '').slice(0, 40) : '',
+        fmt(start), fmt(end), String(Math.round((end - start) / 6000) / 10), loss, done, row ? row['機台'] : '', people, fmt(Date.now())];
+      const at = all.length + 1;
+      if (at > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), 500);
+      const range = sh.getRange(at, 1, 1, out.length);
+      range.setNumberFormat('@'); range.setValues([out]);
+      all.push(out);
+    }
+    rows = all.slice(1).filter(r => r[1] === no);
+  } finally {
+    lock.releaseLock();
+  }
+  // 加總後寫回表格那一列
+  const s = workSum_(no, rows);
+  const qty = Number(String(order ? order.qty : row['數量']).replace(/,/g, ''));
+  const total = Math.round(s.prep + s.run + s.stop);
+  const fields = {
+    '工令單號': no,
+    '前置(分)': String(Math.round(s.prep)), '上機(分)': String(Math.round(s.run)), '停機(分)': String(Math.round(s.stop)),
+    '損耗': String(s.loss), '可損耗': isFinite(qty) && qty > 0 ? String(Math.floor(qty * WORK.LOSS_RATE)) : '',
+    '實際用時(時)': String(Math.floor(total / 60)), '實際用時(分)': String(total % 60),
+  };
+  if (!row || !row['製造日期']) fields['製造日期'] = s.first.slice(0, 10);
+  if (s.hasDone) { fields['完成數量'] = String(s.done); fields['生產進度'] = String(s.done); fields['完工時間'] = s.last.slice(0, 10); }
+  const saved = save_(fields);
+  return saved.ok ? { ok: true, sum: { prep: s.prep, run: s.run, stop: s.stop, loss: s.loss, done: s.done, allow: fields['可損耗'] } } : saved;
 }
 
 // ---- 一次性匯入：把「五股廠(生產組)」現有的填寫內容帶進表格 ----

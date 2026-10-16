@@ -16,7 +16,7 @@ class Sheet {
   setFrozenRows() {}
   insertRowsAfter(_, n) { this.max += n; }
   deleteRow(n) { this.rows.splice(n - 1, 1); }
-  getParent() { return { getUrl: () => 'https://docs.google.com/spreadsheets/d/db' }; }
+  getParent() { return this.book || { getUrl: () => 'https://docs.google.com/spreadsheets/d/db' }; }
   getRange(r, c, nr = 1, nc = 1) {
     const sh = this;
     if (r + nr - 1 > this.max || c + nc - 1 > this.cols) throw new Error('outside the sheet');
@@ -84,8 +84,10 @@ const g = {
     },
     create: name => {
       creates++;
-      const sh = new Sheet('Sheet1');
-      dbBook = { getId: () => 'db', getSheets: () => [sh], getSheetByName: n => (n === sh.name ? sh : null) };
+      const sh = new Sheet('Sheet1'), all = [sh];
+      dbBook = { getId: () => 'db', getUrl: () => 'https://docs.google.com/spreadsheets/d/db', getSheets: () => all, getSheetByName: n => all.find(x => x.name === n) || null,
+        insertSheet: n => { const x = new Sheet(n); x.book = dbBook; all.push(x); return x; } };
+      sh.book = dbBook;
       return dbBook;
     },
   },
@@ -104,7 +106,9 @@ assert.equal(post({ action: 'nope' }).error, 'bad_request');
 
 // the phone lookup gives only the four fields (plus the rework flag), never the table-only ones
 const one = get({ no: 'V1150831005' }).order;
-assert.deepEqual(Object.keys(one).sort(), ['code', 'name', 'no', 'qty', 'rework', 'unit']);
+assert.deepEqual(Object.keys(one).sort(), ['code', 'loss', 'name', 'no', 'prepped', 'qty', 'rework', 'unit']);
+assert.equal(one.prepped, false);
+assert.equal(one.loss, 0);
 assert.equal(one.name, '2M_西洋梨型 裸包 (每包3公克)');
 
 // dropdown options: people from column A, left-side headers only, green QC/拋光 columns ignored
@@ -192,6 +196,34 @@ const upgraded = get({ action: 'list' }).rows;
 assert.equal(old.rows[0].length >= 32 && old.rows[0][31] === '排序', true);
 assert.deepEqual(upgraded.map(x => x['工令單號']), ['V1150831006']);
 assert.equal(upgraded[0]['排序'], '');
+
+// phone timer: each finished stage is one segment in 工時紀錄; the order's row in the table gets the totals
+const T0 = Date.UTC(2026, 9, 14, 1, 0, 0), M = 60000;
+post({ action: 'save', row: { 工令單號: 'V1150831005', 機台: '小粉包機-1', 作業人員1: '小明', 作業人員2: '小華' } });
+let w = post({ action: 'work', seg: { id: 's1', no: 'V1150831005', phase: 'prep', start: T0, end: T0 + 30 * M, loss: 50 } });
+assert.equal(w.ok, true);
+assert.equal(w.sum.allow, '180'); // 6,000 × 3%
+assert.equal(post({ action: 'work', seg: { id: 's1', no: 'V1150831005', phase: 'prep', start: T0, end: T0 + 30 * M, loss: 50 } }).sum.loss, 50, 'a resent segment is not counted twice');
+post({ action: 'work', seg: { id: 's2', no: 'V1150831005', phase: 'run', start: T0 + 30 * M, end: T0 + 90 * M } });
+post({ action: 'work', seg: { id: 's3', no: 'V1150831005', phase: 'stop', reasonText: '等料', start: T0 + 90 * M, end: T0 + 100 * M } });
+w = post({ action: 'work', seg: { id: 's4', no: 'V1150831005', phase: 'run', start: T0 + 100 * M, end: T0 + 125 * M, done: 5900 } });
+assert.deepEqual(w.sum, { prep: 30, run: 85, stop: 10, loss: 50, done: 5900, allow: '180' });
+const ws = dbBook.getSheetByName('工時紀錄');
+assert.equal(ws.rows.length, 5);
+assert.deepEqual(ws.rows[3].slice(1, 12), ['V1150831005', '2M_西洋梨型 裸包 (每包3公克)', '停機', '等料', '2026-10-14 09:00:00', '2026-10-14 09:00:00', '10', '', '', '小粉包機-1', '小明、小華']);
+const tr = get({ action: 'list' }).rows.find(x => x['工令單號'] === 'V1150831005');
+assert.equal(tr['前置(分)'], '30'); assert.equal(tr['上機(分)'], '85'); assert.equal(tr['停機(分)'], '10');
+assert.equal(tr['損耗'], '50'); assert.equal(tr['可損耗'], '180'); assert.equal(tr['完成數量'], '5900'); assert.equal(tr['生產進度'], '5900');
+assert.equal(tr['實際用時(時)'], '2'); assert.equal(tr['實際用時(分)'], '5');
+assert.equal(tr['製造日期'], '2026-10-14'); assert.equal(tr['完工時間'], '2026-10-14');
+assert.equal(tr['機台'], '小粉包機-1'); // the table's own fields stay
+const again = get({ no: 'V1150831005' }).order;
+assert.equal(again.prepped, true); assert.equal(again.loss, 50);
+// bad segments are refused
+assert.equal(post({ action: 'work', seg: { id: 'x', no: 'V1150831005', phase: 'lunch', start: T0, end: T0 + M } }).error, 'bad_request');
+assert.equal(post({ action: 'work', seg: { id: 'x', no: 'V1150831005', phase: 'run', start: T0 + M, end: T0 } }).error, 'bad_request');
+assert.equal(post({ action: 'work', seg: { id: 'x', no: 'V1150831005', phase: 'prep', start: T0, end: T0 + M, loss: -3 } }).error, 'bad_request');
+assert.equal(post({ action: 'work', seg: { id: 'x', no: 'V1150831999', phase: 'run', start: T0, end: T0 + M } }).error, 'not_found');
 
 // the plan index is cached in chunks, so a big sheet still fits and the second lookup skips the sheet
 cache.clear();

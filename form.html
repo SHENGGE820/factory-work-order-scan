@@ -63,6 +63,7 @@ tr.lifted .grip{color:var(--accent)}
 .grip:hover{color:var(--ink)}
 body.dragging-rows{cursor:grabbing;user-select:none}
 body.dragging-rows *{cursor:grabbing!important}
+td.over{color:#fff;background:var(--stop)!important;font-weight:700}
 tr.saved td.s0{box-shadow:inset 3px 0 0 var(--go)}
 tr.done td{opacity:.6}
 td select,td input[type=text],td input[type=number],td input[type=date]{border-color:transparent;background:transparent}
@@ -106,7 +107,7 @@ tr.sec.empty td{background:var(--bg);color:var(--muted);font-size:14px;padding:5
       <button class="btn" id="reloadBtn">重新讀取</button>
       <span class="note" id="summary"></span>
     </div>
-    <p class="note" id="tableNote"><span class="legend">淺藍底</span> 是計畫單平台帶過來的，不用填。其他格子直接點了填，會自動存。按住最左邊 ⠿ 上下拖可以排順序，拖到別的大分類底下就換分類；機台直接在「機台」欄選。</p>
+    <p class="note" id="tableNote"><span class="legend">淺藍底</span> 是自動帶的（計畫單平台、手機計時），不用填；製造日期、完工時間、生產進度、實際用時也會被手機計時自動填上。其他格子直接點了填，會自動存。按住最左邊 ⠿ 上下拖可以排順序，拖到別的大分類底下就換分類；機台直接在「機台」欄選。</p>
     <div class="tablewrap" id="tableView">
       <table>
         <thead><tr id="head"></tr></thead>
@@ -141,6 +142,12 @@ const COLS = [
   {k:"完工時間", t:"date"},
   {k:"實際用時(時)", label:"實際用時(時)", t:"number"},
   {k:"實際用時(分)", label:"實際用時(分)", t:"number"},
+  // filled in by the phone timer (工時紀錄): shown, not typed
+  {id:"tPrep", label:"前置(分)", auto:true, sv:"前置(分)"},
+  {id:"tRun", label:"上機(分)", auto:true, sv:"上機(分)"},
+  {id:"tStop", label:"停機(分)", auto:true, sv:"停機(分)"},
+  {id:"tLoss", label:"損耗", auto:true, sv:"損耗"},
+  {id:"tAllow", label:"可損耗", auto:true, sv:"可損耗"},
   {k:"進度說明", t:"select", opt:"進度說明"},
   // ... then the right half of the sheet
   {k:"出貨點", t:"text", list:["出貨客戶","五股包裝"]},
@@ -274,6 +281,7 @@ function buildRow(r){
       const cb=document.createElement("input"); cb.type="checkbox"; cb.checked=!!on; cb.className="ro"; cb.tabIndex=-1;
       cb.title="來自計畫單平台（要改請到計畫單平台）"; cb.setAttribute("aria-label",c.label+(on?"：是":"：否")); cb.addEventListener("click",e=>e.preventDefault());
       td.append(cb)}
+    else if(c.sv){td.dataset.sv=c.sv;td.style.textAlign="right";fillTimer(td,r.saved)}
     else if(c.auto&&c.id!=="people"&&c.id!=="status"){td.textContent=r.plan?.[c.id]||"";if(c.mono)td.className+=" mono"}
     else if(c.id==="people"){td.dataset.people="1";td.style.textAlign="center";td.textContent=peopleOf(r.saved).length||""}
     else if(c.id==="status"){td.className+=" status";setStatus(td,r.saved?"good":"",r.saved?"✓":"");if(r.saved)td.title="已存 "+r.saved["更新時間"].slice(5,16);
@@ -282,6 +290,11 @@ function buildRow(r){
     tr.append(td);
   }
   return tr;
+}
+// Timer columns; 損耗 turns red once it is over 可損耗 (order quantity × 3%).
+function fillTimer(td,row){
+  const v=row?.[td.dataset.sv]??""; td.textContent=v;
+  if(td.dataset.sv==="損耗"){const over=v!==""&&row["可損耗"]!==""&&Number(v)>Number(row["可損耗"]); td.classList.toggle("over",over); td.title=over?"已超過可損耗":""}
 }
 function setStatus(td,cls,text){td.className="status"+(cls?" "+cls:"");td.textContent=text}
 
@@ -358,6 +371,7 @@ function applySaved(tr,row){
   const no=tr.dataset.no, td=statusCell(tr);
   saved.set(no,row); tr.classList.add("saved"); tr.classList.toggle("done",isDone(planOf.get(no),row));
   tr.querySelector("[data-people]").textContent=row["人數"]||"";
+  for(const c of tr.querySelectorAll("td[data-sv]")) fillTimer(c,row);
   setStatus(td,"good","✓"); td.title="已存 "+row["更新時間"].slice(5,16);
   const b=document.createElement("button");b.className="btn btn-mini";b.textContent="清除";b.dataset.clear=no;td.append(" ",b);
   say(""); $("summary").textContent=$("summary").textContent.replace(/已填 \d+ 張/,"已填 "+saved.size+" 張");

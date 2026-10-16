@@ -112,10 +112,44 @@ select.big{font:inherit;font-size:18px;padding:10px 12px;border:1px solid var(--
 .done input{font:inherit;font-family:var(--font-mono);font-size:32px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);width:100%}
 .msg.ok{background:var(--go-bg);color:var(--go)}
 .log{display:flex;flex-direction:column}
-.group{padding:10px 0;border-top:2px solid var(--line)}
-.group .head{font-weight:700}
-.group .sum{font-size:14px;font-weight:600;margin-top:2px}
-.group .row{padding:6px 0 6px 12px;border-top:1px dashed var(--line);font-size:14px}
+#log{display:flex;flex-direction:column;gap:10px}
+.day{font-size:13px;font-weight:700;color:var(--muted);margin:6px 0 -2px;letter-spacing:.04em}
+.card{border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px;background:var(--bg)}
+.card .top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.card .no{font-family:var(--font-mono);font-weight:700;font-size:18px;letter-spacing:.02em}
+.card .nm{font-size:13px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.pill{flex:none;font-size:12px;font-weight:700;padding:2px 10px;border-radius:999px;background:var(--surface);border:1px solid var(--line);color:var(--muted)}
+.pill.live{background:var(--warn-bg);color:var(--warn-ink);border-color:transparent}
+.pill.ok{background:var(--go-bg);color:var(--go);border-color:transparent}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.stat{background:var(--surface);border-radius:8px;padding:6px 8px;min-width:0}
+.stat .k{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:5px}
+.stat .v{font-size:16px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.3;overflow-wrap:anywhere}
+.stat .v.small{font-size:14px;font-weight:600}
+.stat.bad .v{color:var(--stop)}
+.dot{width:8px;height:8px;border-radius:50%;flex:none;display:inline-block}
+.dot.prep{background:var(--accent)} .dot.run{background:var(--go)} .dot.stop{background:var(--stop)}
+.tl{display:flex;gap:2px;height:10px}
+.tl b{display:block;height:100%;min-width:3px}
+.tl b:first-child{border-radius:5px 0 0 5px}
+.tl b:last-child{border-radius:0 5px 5px 0}
+.tl b:only-child{border-radius:5px}
+.tl b.prep{background:var(--accent)} .tl b.run{background:var(--go)} .tl b.stop{background:var(--stop)}
+.tl b.live{opacity:.55}
+.card details summary{cursor:pointer;font-size:13px;color:var(--muted);font-weight:600;list-style:none;display:flex;align-items:center;gap:6px}
+.card details summary::-webkit-details-marker{display:none}
+.card details summary::before{content:"▸";font-size:11px}
+.card details[open] summary::before{content:"▾"}
+.seg{display:grid;grid-template-columns:auto 1fr auto;gap:0 8px;align-items:baseline;padding:7px 0;border-top:1px solid var(--line);font-size:14px}
+.seg:first-of-type{margin-top:6px}
+.seg .dot{align-self:center}
+.seg .w{min-width:0}
+.seg .w small{display:block;color:var(--muted);font-size:12px}
+.seg .t{text-align:right;font-family:var(--font-mono);font-size:13px;white-space:nowrap}
+.seg .t small{display:block;color:var(--muted)}
+.tg{display:inline-block;font-size:12px;font-weight:600;padding:0 6px;border-radius:4px;background:var(--surface);margin-left:4px}
+.tg.loss{color:var(--stop)}
+.tg.done{color:var(--go)}
 .h2{font-size:15px;margin:0;color:var(--muted);font-weight:600}
 .log h2,.sheet h2{font-size:15px;margin:0 0 6px;color:var(--muted);font-weight:600}
 .row{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:10px 0;border-top:1px solid var(--line)}
@@ -308,7 +342,7 @@ const T = {
       busy:"讀取中…",noCode:"沒有讀到工令單號條碼。請把「工令單號」那條拍清楚、拍正，再試一次。",
       badFormat:"這不是工令單號（應為 1 個英文字加 10 位數字）。",notFound:"查無此單：",
       records:"工時紀錄",empty:"還沒有紀錄。",phasePrep:"前置作業",phaseRun:"上機作業",endPrep:"前置結束，開始上機",endRun:"上機結束",doneAsk:"完成數量",saveEnd:"確認，結束計時",back:"返回",cancelPrep:"掃錯單，取消",finishFirst:"還有一張單在計時中，請先把它結束，才能開始下一張。",needQty:"請輸入完成數量（整數）。",saved:"已記錄，辛苦了！",done:"完成",pcs:"顆",
-      phaseStop:"停機",stop:"停機",resume:"恢復作業",reasonAsk:"停機原因（按一個）",allowLoss:"可損耗",usedLoss:"已損耗",lossAsk:"這次「{r}」損耗了幾{u}？（沒有就填 0）",needLoss:"請輸入損耗數量（整數，沒有就填 0）。",overLoss:"已超過可損耗數量！",pending:"未上傳",logLive:"紀錄會自動上傳；沒有網路時先存在手機，連上網路再補傳。",loss:"損耗",r_foil:"換鋁卷",r_ribbon:"換碳帶",r_adjust:"調機",r_burst:"破包",r_print:"打印",r_water:"水測",r_material:"等料",r_breakdown:"機器故障",r_break:"休息／用餐",r_quality:"品質問題",r_other:"其他",jobs:"進行中的工令",noJobs:"目前沒有進行中的工令。掃一張工令開始。",whoAsk:"誰做這張？（可以選好幾個人）",machineAsk:"機台",noMachine:"（不選）",startJob:"開始計時",saveCrew:"確認換人",needWho:"請至少選一個人。",changeCrew:"換人／換機台",hideOrder:"收起",fMach:"機台",fPeople:"作業人員",noStaff:"讀不到人員名單，請確認網路後重新打開。",inProgress:"進行中",min:"分鐘",
+      phaseStop:"停機",stop:"停機",resume:"恢復作業",reasonAsk:"停機原因（按一個）",allowLoss:"可損耗",usedLoss:"已損耗",lossAsk:"這次「{r}」損耗了幾{u}？（沒有就填 0）",needLoss:"請輸入損耗數量（整數，沒有就填 0）。",overLoss:"已超過可損耗數量！",pending:"未上傳",logLive:"紀錄會自動上傳；沒有網路時先存在手機，連上網路再補傳。",loss:"損耗",r_foil:"換鋁卷",r_ribbon:"換碳帶",r_adjust:"調機",r_burst:"破包",r_print:"打印",r_water:"水測",r_material:"等料",r_breakdown:"機器故障",r_break:"休息／用餐",r_quality:"品質問題",r_other:"其他",jobs:"進行中的工令",noJobs:"目前沒有進行中的工令。掃一張工令開始。",whoAsk:"誰做這張？（可以選好幾個人）",machineAsk:"機台",noMachine:"（不選）",startJob:"開始計時",saveCrew:"確認換人",needWho:"請至少選一個人。",changeCrew:"換人／換機台",hideOrder:"收起",fMach:"機台",fPeople:"作業人員",noStaff:"讀不到人員名單，請確認網路後重新打開。",today:"今天",yesterday:"昨天",statusLive:"進行中",statusDone:"已完成",statusOpen:"未完成",segs:"明細",onlyRecent:"只顯示最近 7 天的紀錄。",hr:"時",mn:"分",inProgress:"進行中",min:"分鐘",
       sheetNote:"用電腦開這一頁，再用手機的「掃描」頁對著螢幕拍照。全部是編造的測試資料。",
       slipNo:"工令單號",slipQty:"數量"},
   vi:{title:"Quét lệnh sản xuất",demo:"Bản thử・Dữ liệu giả",tabScan:"Quét",tabSheet:"Phiếu thử",scan:"Chụp ảnh thay thế",live:"Quét phiếu",aim:"Đưa mã vạch “工令單號” vào khung",checking:"Đã đọc, đang tìm… ",torch:"Đèn pin",closeCam:"Tắt camera",camErr:"Không mở được camera. Hãy cho phép dùng camera, hoặc chụp ảnh.",tryPhoto:"Không quét được? Hãy bấm “Chụp ảnh thay thế” bên dưới.",find:"Tìm",pinAsk:"Nhập mật khẩu nhà máy (chỉ một lần)",ok:"OK",badPin:"Mật khẩu nhà máy không đúng, hãy nhập lại.",netErr:"Không kết nối được dữ liệu. Kiểm tra mạng rồi thử lại.",live1:"Bản thử",
@@ -317,7 +351,7 @@ const T = {
       busy:"Đang đọc…",noCode:"Không đọc được mã vạch số lệnh. Hãy chụp rõ và thẳng mã vạch “工令單號”, rồi thử lại.",
       badFormat:"Đây không phải số lệnh SX (1 chữ cái + 10 chữ số).",notFound:"Không tìm thấy phiếu: ",
       records:"Nhật ký giờ làm",empty:"Chưa có dữ liệu.",phasePrep:"Chuẩn bị",phaseRun:"Chạy máy",endPrep:"Xong chuẩn bị, bắt đầu chạy máy",endRun:"Kết thúc chạy máy",doneAsk:"Số lượng hoàn thành",saveEnd:"Xác nhận, dừng tính giờ",back:"Quay lại",cancelPrep:"Quét nhầm phiếu, hủy",finishFirst:"Còn một phiếu đang tính giờ. Hãy kết thúc phiếu đó trước khi bắt đầu phiếu mới.",needQty:"Hãy nhập số lượng hoàn thành (số nguyên).",saved:"Đã lưu. Cảm ơn bạn!",done:"Hoàn thành",pcs:"viên",
-      phaseStop:"Dừng máy",stop:"Dừng máy",resume:"Tiếp tục làm",reasonAsk:"Lý do dừng máy (chọn một)",allowLoss:"Hao hụt cho phép",usedLoss:"Đã hao hụt",lossAsk:"Lần “{r}” này hao hụt bao nhiêu {u}? (không có thì nhập 0)",needLoss:"Hãy nhập số hao hụt (số nguyên, không có thì nhập 0).",overLoss:"Đã vượt mức hao hụt cho phép!",pending:"Chưa gửi",logLive:"Dữ liệu tự động gửi lên; khi không có mạng sẽ lưu trên điện thoại và gửi lại khi có mạng.",loss:"Hao hụt",r_foil:"Thay cuộn nhôm",r_ribbon:"Thay ruy băng mực",r_adjust:"Chỉnh máy",r_burst:"Rách gói",r_print:"In ấn",r_water:"Thử nước",r_material:"Chờ nguyên liệu",r_breakdown:"Máy hỏng",r_break:"Nghỉ / ăn cơm",r_quality:"Vấn đề chất lượng",r_other:"Khác",jobs:"Lệnh đang làm",noJobs:"Hiện chưa có lệnh nào. Quét một phiếu để bắt đầu.",whoAsk:"Ai làm phiếu này? (có thể chọn nhiều người)",machineAsk:"Máy",noMachine:"(không chọn)",startJob:"Bắt đầu tính giờ",saveCrew:"Xác nhận đổi người",needWho:"Hãy chọn ít nhất một người.",changeCrew:"Đổi người / đổi máy",hideOrder:"Thu gọn",fMach:"Máy",fPeople:"Người làm",noStaff:"Không tải được danh sách nhân viên, hãy kiểm tra mạng rồi mở lại.",inProgress:"Đang làm",min:"phút",
+      phaseStop:"Dừng máy",stop:"Dừng máy",resume:"Tiếp tục làm",reasonAsk:"Lý do dừng máy (chọn một)",allowLoss:"Hao hụt cho phép",usedLoss:"Đã hao hụt",lossAsk:"Lần “{r}” này hao hụt bao nhiêu {u}? (không có thì nhập 0)",needLoss:"Hãy nhập số hao hụt (số nguyên, không có thì nhập 0).",overLoss:"Đã vượt mức hao hụt cho phép!",pending:"Chưa gửi",logLive:"Dữ liệu tự động gửi lên; khi không có mạng sẽ lưu trên điện thoại và gửi lại khi có mạng.",loss:"Hao hụt",r_foil:"Thay cuộn nhôm",r_ribbon:"Thay ruy băng mực",r_adjust:"Chỉnh máy",r_burst:"Rách gói",r_print:"In ấn",r_water:"Thử nước",r_material:"Chờ nguyên liệu",r_breakdown:"Máy hỏng",r_break:"Nghỉ / ăn cơm",r_quality:"Vấn đề chất lượng",r_other:"Khác",jobs:"Lệnh đang làm",noJobs:"Hiện chưa có lệnh nào. Quét một phiếu để bắt đầu.",whoAsk:"Ai làm phiếu này? (có thể chọn nhiều người)",machineAsk:"Máy",noMachine:"(không chọn)",startJob:"Bắt đầu tính giờ",saveCrew:"Xác nhận đổi người",needWho:"Hãy chọn ít nhất một người.",changeCrew:"Đổi người / đổi máy",hideOrder:"Thu gọn",fMach:"Máy",fPeople:"Người làm",noStaff:"Không tải được danh sách nhân viên, hãy kiểm tra mạng rồi mở lại.",today:"Hôm nay",yesterday:"Hôm qua",statusLive:"Đang làm",statusDone:"Xong",statusOpen:"Chưa xong",segs:"Chi tiết",onlyRecent:"Chỉ hiện dữ liệu 7 ngày gần nhất.",hr:"giờ",mn:"phút",inProgress:"Đang làm",min:"phút",
       sheetNote:"Mở trang này trên máy tính, rồi dùng trang “Quét” trên điện thoại để chụp màn hình. Dữ liệu đều là giả.",
       slipNo:"Số lệnh SX",slipQty:"Số lượng"},
 };
@@ -756,35 +790,71 @@ const md=ms=>{const d=new Date(ms);return (d.getMonth()+1)+"/"+d.getDate()};
 const mins=ms=>Math.max(1,Math.round(ms/60000))+" "+t("min");
 const div=(cls,text)=>{const d=document.createElement("div");d.className=cls;d.textContent=text;return d};
 // Grouped by work order, most recently active first; each group totals the time of every stage, the loss and the finished count.
+// One card per work order (newest first, grouped by the day it was last worked on): status, time per stage,
+// loss and finished count, a timeline of the stages, and the segments folded away underneath.
+const dur=ms=>{const m=Math.max(1,Math.round(ms/60000)), sp=lang==="zh"?"":" ";return m<60?m+sp+t("mn"):Math.floor(m/60)+sp+t("hr")+" "+String(m%60).padStart(2,"0")+sp+t("mn")};
+const el=(tag,cls,text)=>{const d=document.createElement(tag);if(cls)d.className=cls;if(text!=null)d.textContent=text;return d};
+function dayLabel(ms){
+  const d=new Date(ms), a=new Date(); a.setHours(0,0,0,0); const b=new Date(d); b.setHours(0,0,0,0);
+  const diff=Math.round((a-b)/86400000), md=(d.getMonth()+1)+"/"+d.getDate();
+  return diff===0?t("today")+" "+md:diff===1?t("yesterday")+" "+md:md;
+}
 function renderLog(){
-  const el=$("log"); el.textContent="";
-  const rows=[...jobs.map(j=>({...j,name:j.o?.name||j.name||"",unit:j.o?.unit||"",end:null})),...log];
-  if(!rows.length){const p=document.createElement("p");p.className="empty";p.textContent=t("empty");el.append(p);return}
+  const box=$("log"); box.textContent="";
+  const now=Date.now(), recent=now-7*86400000;
+  const rows=[...jobs.map(j=>({...j,name:j.o?.name||j.name||"",unit:j.o?.unit||"",end:null,live:true})),...log].filter(r=>(r.end||now)>=recent);
+  if(!rows.length){box.append(el("p","empty",t("empty")));return}
   const groups=new Map();
   for(const r of rows){if(!groups.has(r.no))groups.set(r.no,[]);groups.get(r.no).push(r)}
   const waiting=new Set(outbox.map(r=>r.id));
-  for(const [no,rs] of groups){
-    const sum={prep:0,run:0,stop:0,loss:0,done:0}, unit=" "+(rs.find(r=>r.unit)?.unit||t("pcs"));
-    for(const r of rs){if(r.end)sum[r.phase]+=r.end-r.start;sum.done+=r.done||0;sum.loss+=r.loss||0}
-    const g=document.createElement("div");g.className="group";
-    const parts=[t("phasePrep")+" "+(sum.prep?mins(sum.prep):"—"),t("phaseRun")+" "+(sum.run?mins(sum.run):"—")];
-    if(sum.stop) parts.push(t("phaseStop")+" "+mins(sum.stop));
-    parts.push(t("loss")+" "+sum.loss.toLocaleString()+unit, t("done")+" "+sum.done.toLocaleString()+unit);
-    g.append(div("head mono",no),div("sub",rs.find(r=>r.name)?.name||""),div("sum",parts.join("・")));
-    for(const r of rs){
-      const d=document.createElement("div");d.className="row";
-      const what=t(PH[r.phase])+(r.reason?"："+t(r.reason):"")+(r.people?.length?"（"+r.people.join("、")+"）":"");
-      const extra=[r.loss!=null?t("loss")+" "+r.loss.toLocaleString()+unit:"",r.done!=null?t("done")+" "+r.done.toLocaleString()+unit:""].filter(Boolean).join("・");
-      d.append(div("",what),
-        div("r mono",md(r.start)+" "+hm(r.start)+" – "+(r.end?hm(r.end):"…")),
-        div("sub",extra),
-        div("r sub",r.end?mins(r.end-r.start):t("inProgress")));
-      if(waiting.has(r.id)) d.append(div("sub pend",t("pending")));
-      g.append(d);
+  const cards=[...groups.entries()].map(([no,rs])=>({no,rs:[...rs].sort((a,b)=>a.start-b.start),last:Math.max(...rs.map(r=>r.end||now))})).sort((a,b)=>b.last-a.last);
+  let day=null;
+  for(const {no,rs,last} of cards){
+    const dl=dayLabel(last); if(dl!==day){day=dl;box.append(el("div","day",dl))}
+    const sum={prep:0,run:0,stop:0,loss:0,done:0}, unit=rs.find(r=>r.unit)?.unit||t("pcs");
+    for(const r of rs){sum[r.phase]+=(r.end||now)-r.start;sum.done+=r.done||0;sum.loss+=r.loss||0}
+    const live=rs.some(r=>r.live), finished=rs.some(r=>r.done!=null), unsent=rs.filter(r=>waiting.has(r.id)).length;
+    const o=orders.get(no), allow=allowOf(o);
+    const c=el("article","card");
+    // header: order number, product, status
+    const top=el("div","top"), head=el("div"); head.style.minWidth="0";
+    head.append(el("div","no",no),el("div","nm",rs.find(r=>r.name)?.name||""));
+    const pills=el("div"); pills.style.cssText="display:flex;flex-direction:column;gap:4px;align-items:flex-end";
+    pills.append(el("span","pill"+(live?" live":finished?" ok":""),t(live?"statusLive":finished?"statusDone":"statusOpen")));
+    if(unsent) pills.append(el("span","pill pend",t("pending")));
+    top.append(head,pills); c.append(top);
+    // numbers
+    const stats=el("div","stats");
+    const stat=(k,v,ph,bad)=>{const x=el("div","stat"+(bad?" bad":"")), kk=el("div","k");if(ph)kk.append(el("span","dot "+ph));kk.append(k);x.append(kk,el("div","v",v));stats.append(x)};
+    stat(t("phasePrep"),sum.prep?dur(sum.prep):"—","prep");
+    stat(t("phaseRun"),sum.run?dur(sum.run):"—","run");
+    stat(t("phaseStop"),sum.stop?dur(sum.stop):"—","stop");
+    stat(t("loss"),sum.loss.toLocaleString()+" "+unit,null,allow!=null&&usedOf(no)>allow);
+    stat(t("done"),finished?sum.done.toLocaleString()+" "+unit:"—");
+    stat(t("fPeople"),[...new Set(rs.flatMap(r=>r.people||[]))].join("、")||"—"); stats.lastChild.querySelector(".v").classList.add("small");
+    c.append(stats);
+    // timeline: one block per segment, width by duration
+    const tl=el("div","tl"), total=rs.reduce((a,r)=>a+((r.end||now)-r.start),0)||1;
+    for(const r of rs){const b=el("b",r.phase+(r.live?" live":""));b.style.flex=((r.end||now)-r.start)/total+" 1 0";b.title=t(PH[r.phase])+" "+dur((r.end||now)-r.start);tl.append(b)}
+    c.append(tl);
+    // segments, folded
+    const det=el("details"); det.append(el("summary",null,t("segs")+"（"+rs.length+"）"));
+    for(const r of [...rs].reverse()){
+      const g=el("div","seg"), w=el("div","w");
+      w.append(t(PH[r.phase])+(r.reason?"："+t(r.reason):""));
+      if(r.loss!=null) w.append(el("span","tg loss",t("loss")+" "+r.loss.toLocaleString()));
+      if(r.done!=null) w.append(el("span","tg done",t("done")+" "+r.done.toLocaleString()));
+      const sub=[r.machine,(r.people||[]).join("、"),waiting.has(r.id)?t("pending"):""].filter(Boolean).join("・"); if(sub) w.append(el("small",null,sub));
+      const tt=el("div","t",hm(r.start)+"–"+(r.end?hm(r.end):"…")); tt.append(el("small",null,r.end?dur(r.end-r.start):t("inProgress")));
+      g.append(el("span","dot "+r.phase),w,tt); det.append(g);
     }
-    el.append(g);
+    c.append(det);
+    box.append(c);
   }
+  if(log.some(r=>r.end<recent)) box.append(el("p","note",t("onlyRecent")));
 }
+// keep the running cards' numbers moving
+setInterval(()=>{if(jobs.length&&!document.hidden&&!document.querySelector(".card details[open]"))renderLog()},30000);
 
 // ---- Test slips with real Code 128 barcodes ----
 function renderSlips(){
